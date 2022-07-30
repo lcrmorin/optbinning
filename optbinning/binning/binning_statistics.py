@@ -563,6 +563,8 @@ class BinningTable:
         else:
             bin_str.extend(["Special", "Missing"])
 
+        self._bin_str = bin_str
+            
         df = pd.DataFrame({
             "Bin": bin_str,
             "Count": n_records,
@@ -679,6 +681,7 @@ class BinningTable:
             labels = ['Non-event', 'Event']
 
             ax1.set_xlabel("Bin ID", fontsize=12)
+            ax1.set_xticklabels(self._bin_str)
             ax1.set_ylabel("Bin count", fontsize=13)
 
             ax2 = ax1.twinx()
@@ -766,8 +769,9 @@ class BinningTable:
             labels = ['Non-event', 'Event']
 
             ax1.set_xlabel("x", fontsize=12)
+            
             ax1.set_ylabel("Bin count", fontsize=13)
-
+            ax1.set_xticklabels(self._bin_str)
             ax2 = ax1.twinx()
 
             for i in range(n_splits + 1):
