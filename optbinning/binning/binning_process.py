@@ -211,8 +211,10 @@ def _check_parameters(variable_names, max_n_prebins, min_prebin_size,
                       split_digits, binning_fit_params,
                       binning_transform_params, n_jobs, verbose):
 
-    if not isinstance(variable_names, (np.ndarray, list)):
-        raise TypeError("variable_names must be a list or numpy.ndarray.")
+    if (variable_names is not None
+            and not isinstance(variable_names, (np.ndarray, list))):
+        raise TypeError("variable_names must be a list, numpy.ndarray or "
+                        "None.")
 
     if not isinstance(max_n_prebins, numbers.Integral) or max_n_prebins <= 1:
         raise ValueError("max_prebins must be an integer greater than 1; "
@@ -397,7 +399,7 @@ class BaseBinningProcess:
         # Fixed variables
         if self.fixed_variables is not None:
             for fv in self.fixed_variables:
-                idfv = list(self.variable_names).index(fv)
+                idfv = list(self._variable_names).index(fv)
                 self._support[idfv] = True
 
     def _binning_selection_criteria(self) -> None:
@@ -448,8 +450,14 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
     Parameters
     ----------
-    variable_names : array-like
-        List of variable names.
+    variable_names : array-like or None, optional (default=None)
+        List of variable names. If None, names are inferred from ``X`` at
+        fit time: column names for a ``pandas.DataFrame``, or
+        ``"x0", "x1", ...`` for a ``numpy.ndarray``. Required (cannot be
+        None) when using ``fit_disk``.
+
+        .. versionchanged:: 1.1.0
+           ``variable_names`` is now optional.
 
     max_n_prebins : int (default=20)
         The maximum number of bins after pre-binning (prebins).
@@ -562,7 +570,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
     """
     def __init__(
         self,
-        variable_names: npt.ArrayLike | list[str],
+        variable_names: npt.ArrayLike | list[str] | None = None,
         max_n_prebins: int = 20,
         min_prebin_size: float = 0.05,
         min_n_bins: int | None = None,
@@ -607,6 +615,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         # auxiliary
         self._n_samples = None
         self._n_variables = None
+        self._variable_names = None
         self._target_dtype = None
         self._n_numerical = None
         self._n_categorical = None
@@ -1017,7 +1026,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         if not isinstance(name, str):
             raise TypeError("name must be a string.")
 
-        if name in self.variable_names:
+        if name in self._variable_names:
             return self._binned_variables[name]
         else:
             raise ValueError("name {} does not match a binned variable."
@@ -1043,7 +1052,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         if not isinstance(name, str):
             raise TypeError("name must be a string.")
 
-        if name not in self.variable_names:
+        if name not in self._variable_names:
             raise ValueError("name {} does not match a binned variable."
                              .format(name))
 
@@ -1120,7 +1129,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         if indices:
             return np.where(mask)[0]
         elif names:
-            return np.asarray(self.variable_names)[mask]
+            return np.asarray(self._variable_names)[mask]
         else:
             return mask
 
@@ -1165,7 +1174,16 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
         self._n_samples, self._n_variables = X.shape
 
-        if self._n_variables != len(self.variable_names):
+        if self.variable_names is None:
+            if isinstance(X, pd.DataFrame):
+                self._variable_names = list(X.columns)
+            else:
+                self._variable_names = ["x{}".format(i)
+                                        for i in range(self._n_variables)]
+        else:
+            self._variable_names = self.variable_names
+
+        if self._n_variables != len(self._variable_names):
             raise ValueError("The number of columns must be equal to the"
                              "length of variable_names.")
 
@@ -1184,7 +1202,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                         .format(n_jobs))
 
         if n_jobs == 1:
-            for i, name in enumerate(self.variable_names):
+            for i, name in enumerate(self._variable_names):
                 if self.verbose:
                     logger.info("Binning variable ({} / {}): {}."
                                 .format(i, self._n_variables, name))
@@ -1209,9 +1227,9 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                 self._variable_dtypes[name] = dtype
                 self._binned_variables[name] = optb
         else:
-            ids = np.arange(len(self.variable_names))
+            ids = np.arange(len(self._variable_names))
             id_blocks = np.array_split(ids, n_jobs)
-            names = np.asarray(self.variable_names)
+            names = np.asarray(self._variable_names)
 
             if isinstance(X, np.ndarray):
                 blocks = Parallel(n_jobs=n_jobs, prefer="threads")(
@@ -1268,6 +1286,13 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
         _check_parameters(**self.get_params())
 
+        # variable_names cannot be inferred from a file path; unlike fit(),
+        # fit_disk() requires it explicitly.
+        if self.variable_names is None:
+            raise ValueError("variable_names cannot be None when using "
+                             "fit_disk.")
+        self._variable_names = self.variable_names
+
         # Input file extension
         extension = input_path.split(".")[1]
 
@@ -1294,12 +1319,12 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
         if self.fixed_variables is not None:
             for fv in self.fixed_variables:
-                if fv not in self.variable_names:
+                if fv not in self._variable_names:
                     raise ValueError("Variable {} to be fixed is not a valid "
                                      "variable name.".format(fv))
 
         self._n_samples = len(y)
-        self._n_variables = len(self.variable_names)
+        self._n_variables = len(self._variable_names)
 
         if self.verbose:
             logger.info("Dataset: number of samples: {}."
@@ -1308,7 +1333,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
             logger.info("Dataset: number of variables: {}."
                         .format(self._n_variables))
 
-        for name in self.variable_names:
+        for name in self._variable_names:
             x = _read_column(input_path, extension, name, **kwargs)
 
             dtype, optb = _fit_variable(
@@ -1350,8 +1375,15 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         if not isinstance(dict_optb, dict):
             raise TypeError("dict_optb must be a dict.")
 
+        # variable_names cannot be inferred here; unlike fit(), this
+        # method requires it explicitly.
+        if self.variable_names is None:
+            raise ValueError("variable_names cannot be None when using "
+                             "_fit_from_dict.")
+        self._variable_names = self.variable_names
+
         # Check variable names
-        if set(dict_optb.keys()) != set(self.variable_names):
+        if set(dict_optb.keys()) != set(self._variable_names):
             raise ValueError("dict_optb keys and variable names must "
                              "coincide.")
 
@@ -1397,7 +1429,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                                       self._target_dtype)
 
         self._n_samples = 0
-        self._n_variables = len(self.variable_names)
+        self._n_variables = len(self._variable_names)
 
         for name, optb in dict_optb.items():
             self._variable_dtypes[name] = optb.dtype
@@ -1465,7 +1497,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                 metrics.add(metric)
 
             for idx in indices_selected_variables:
-                name = self.variable_names[idx]
+                name = self._variable_names[idx]
                 params = self.binning_transform_params.get(name, {})
                 metrics.add(params.get("metric", metric))
 
@@ -1488,7 +1520,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
             X_transform = np.zeros((n_samples, n_selected_variables))
 
         for i, idx in enumerate(indices_selected_variables):
-            name = self.variable_names[idx]
+            name = self._variable_names[idx]
             optb = self._binned_variables[name]
 
             if isinstance(X, np.ndarray):
