@@ -17,7 +17,6 @@ from typing import Self
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from pandas.api.types import is_string_dtype
 
 from joblib import Parallel, delayed, effective_n_jobs
 from sklearn.base import BaseEstimator
@@ -35,6 +34,7 @@ from .continuous_binning import ContinuousOptimalBinning
 from .multiclass_binning import MulticlassOptimalBinning
 from .piecewise.binning import OptimalPWBinning
 from .piecewise.continuous_binning import ContinuousOptimalPWBinning
+from .preprocessing import _check_variable_dtype
 
 
 logger = Logger(__name__).logger
@@ -350,10 +350,6 @@ def _check_parameters(variable_names, max_n_prebins, min_prebin_size,
 
     if not isinstance(verbose, bool):
         raise TypeError("verbose must be a boolean; got {}.".format(verbose))
-
-
-def _check_variable_dtype(x):
-    return "categorical" if is_string_dtype(x.dtype) else "numerical"
 
 
 class BaseBinningProcess:
