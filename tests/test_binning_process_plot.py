@@ -7,7 +7,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from pytest import fixture, raises
+from pytest import fixture, mark, raises
 from sklearn.datasets import load_iris
 from sklearn.exceptions import NotFittedError
 
@@ -112,4 +112,35 @@ def test_selection_and_large_grid():
     assert axes.shape == (6, 5)
     assert sum(ax.get_visible() for ax in axes.flat) == 26
     assert axes.flat[25].get_title() == "x25"
+    plt.close(fig)
+
+
+@mark.parametrize("target_kind", ["binary", "continuous"])
+def test_mixed_numerical_categorical_grid(target_kind, tmp_path):
+    rng = np.random.default_rng(315)
+    numeric = rng.normal(size=400)
+    category = rng.choice(["low", "medium", "high"], size=400)
+    effect = pd.Series(category).map({"low": -1, "medium": 0, "high": 1})
+    signal = numeric + effect.to_numpy()
+    if target_kind == "binary":
+        y = rng.binomial(1, 1 / (1 + np.exp(-signal)))
+    else:
+        y = signal + rng.normal(scale=0.3, size=400)
+    X = pd.DataFrame({"numeric": numeric, "category": category})
+    X.loc[:9, "numeric"] = np.nan
+    X.loc[10:19, "category"] = None
+    process = BinningProcess(
+        ["numeric", "category"], categorical_variables=["category"],
+        max_n_bins=4).fit(X, y)
+    fig, axes = process.plot(show_bin_labels=True)
+    assert axes.shape == (1, 2)
+    assert [ax.get_title() for ax in axes.flat] == ["numeric", "category"]
+    assert process.get_binned_variable("numeric").dtype == "numerical"
+    assert process.get_binned_variable("category").dtype == "categorical"
+    fig.canvas.draw()
+    assert len(axes[0, 0].patches) > 0
+    assert len(axes[0, 1].patches) > 0
+    labels = " ".join(label.get_text() for label in axes[0, 1].get_xticklabels())
+    assert "low" in labels and "high" in labels
+    fig.savefig(tmp_path / f"mixed_{target_kind}.png")
     plt.close(fig)
