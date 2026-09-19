@@ -23,8 +23,7 @@ Choose a subset and its order with ``variable_names=["age", "income"]``.
 The grid supports standard binary, continuous and multiclass binning tables,
 uses their default metrics, and builds tables if needed. It returns a figure
 and a two-dimensional array of primary axes without showing or closing them.
-Unused panels are hidden. Piecewise and two-dimensional binning are outside
-this interface.
+Piecewise and two-dimensional binning are outside this interface.
 
 To compose individual plots yourself, build a table and pass existing axes::
 

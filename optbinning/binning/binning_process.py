@@ -1630,7 +1630,6 @@ class BinningProcess(Base, BaseEstimator, BaseBinningProcess):
 
         return self
 
-
     def plot(self, variable_names=None, ncols=None, figsize=None,
              add_special=True, add_missing=True, show_bin_labels=False):
         """Plot fitted variables in a grid using their existing binning plots.
