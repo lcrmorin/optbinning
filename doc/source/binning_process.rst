@@ -19,6 +19,10 @@ By default, the grid uses ``ceil(sqrt(number of plotted variables))`` columns
 and enough rows to fit all variables. Override this with ``ncols=3``, for
 example. Unused panels are hidden.
 
+Metric y-axes share a common scale by default, covering all plotted variables.
+Use ``share_metric=False`` for independent metric scales. Bin-count axes and
+x-axes remain independent.
+
 Choose a subset and its order with ``variable_names=["age", "income"]``.
 The grid supports standard binary, continuous and multiclass binning tables,
 uses their default metrics, and builds tables if needed. It returns a figure
@@ -101,7 +105,7 @@ Declare categorical columns explicitly with ``categorical_variables``.
    The unused ninth panel is hidden automatically. Numerical features use
    bin IDs; categorical features use names set through the returned axes.
    Stacked bars show event/non-event counts; black curves show WoE on
-   each panel's right axis. Special and missing bins are hidden because this
+   each panel's right axis, with a shared scale. Special and missing bins are hidden because this
    synthetic dataset contains neither.
 
 No feature-selection criteria are configured here, so ``plot()`` includes

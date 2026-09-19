@@ -78,6 +78,8 @@ def test_supplied_axes_ownership(process, tmp_path):
 
 def test_validation(process):
     figures = plt.get_fignums()
+    with raises(TypeError, match="share_metric"):
+        process.plot(share_metric="yes")
     for ncols in [0, -1, 1.5, True]:
         with raises(ValueError):
             process.plot(ncols=ncols)
@@ -153,4 +155,30 @@ def test_mixed_numerical_categorical_grid(target_kind, tmp_path):
     labels = " ".join(label.get_text() for label in axes[0, 1].get_xticklabels())
     assert "low" in labels and "high" in labels
     fig.savefig(tmp_path / f"mixed_{target_kind}.png")
+    plt.close(fig)
+
+
+def test_shared_metric_axes(process):
+    fig, axes = process.plot(share_metric=False)
+    metrics = fig.axes[axes.size:]
+    limits = [ax.get_ylim() for ax in metrics]
+    expected = (min(low for low, high in limits),
+                max(high for low, high in limits))
+    counts = [ax.get_ylim() for ax in axes.flat]
+    assert not metrics[0].get_shared_y_axes().joined(metrics[0], metrics[1])
+    plt.close(fig)
+
+    fig, axes = process.plot()
+    metrics = fig.axes[axes.size:]
+    for metric in metrics:
+        np.testing.assert_allclose(metric.get_ylim(), expected)
+        assert metrics[0].get_shared_y_axes().joined(metrics[0], metric)
+    assert [ax.get_ylim() for ax in axes.flat] == counts
+    assert not axes.flat[0].get_shared_y_axes().joined(
+        axes.flat[0], axes.flat[1])
+    # Later adjustments propagate to metric axes, including extreme limits.
+    metrics[-1].set_ylim(-100, 100)
+    for metric in metrics:
+        assert metric.get_ylim() == (-100, 100)
+    assert [ax.get_ylim() for ax in axes.flat] == counts
     plt.close(fig)

@@ -1631,7 +1631,8 @@ class BinningProcess(Base, BaseEstimator, BaseBinningProcess):
         return self
 
     def plot(self, variable_names=None, ncols=None, figsize=None,
-             add_special=True, add_missing=True, show_bin_labels=False):
+             add_special=True, add_missing=True, show_bin_labels=False,
+             share_metric=True):
         """Plot fitted variables in a grid using their existing binning plots.
 
         Parameters
@@ -1650,6 +1651,9 @@ class BinningProcess(Base, BaseEstimator, BaseBinningProcess):
             Whether to include missing-value bins.
         show_bin_labels : bool (default=False)
             Whether to show bin labels instead of bin IDs.
+        share_metric : bool (default=True)
+            Share the secondary metric y-axis across panels, using limits that
+            cover all plotted variables. Count axes remain independent.
 
         Returns
         -------
@@ -1666,6 +1670,8 @@ class BinningProcess(Base, BaseEstimator, BaseBinningProcess):
         the existing default metrics and standard bin layout for each type.
         """
         self._check_is_fitted()
+        if not isinstance(share_metric, bool):
+            raise TypeError("share_metric must be a boolean.")
         if ncols is not None and (
                 isinstance(ncols, bool) or
                 not isinstance(ncols, numbers.Integral) or ncols < 1):
@@ -1699,10 +1705,20 @@ class BinningProcess(Base, BaseEstimator, BaseBinningProcess):
             figsize=figsize if figsize is not None else (6*ncols, 4.5*nrows),
             layout="constrained")
         try:
+            metric_axes = []
             for ax, table in zip(axes.flat, tables):
                 table.plot(ax=ax, add_special=add_special,
                            add_missing=add_missing,
                            show_bin_labels=show_bin_labels)
+                # Each standard table plot adds one secondary metric axis.
+                metric_axes.append(fig.axes[-1])
+            if share_metric:
+                limits = [ax.get_ylim() for ax in metric_axes]
+                for metric_ax in metric_axes[1:]:
+                    metric_ax.sharey(metric_axes[0])
+                metric_axes[0].set_ylim(
+                    min(low for low, high in limits),
+                    max(high for low, high in limits))
             for ax in list(axes.flat)[len(tables):]:
                 ax.set_visible(False)
         except Exception:
