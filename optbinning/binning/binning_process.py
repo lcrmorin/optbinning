@@ -1631,7 +1631,7 @@ class BinningProcess(Base, BaseEstimator, BaseBinningProcess):
         return self
 
 
-    def plot(self, variable_names=None, ncols=2, figsize=None,
+    def plot(self, variable_names=None, ncols=None, figsize=None,
              add_special=True, add_missing=True, show_bin_labels=False):
         """Plot fitted variables in a grid using their existing binning plots.
 
@@ -1640,8 +1640,9 @@ class BinningProcess(Base, BaseEstimator, BaseBinningProcess):
         variable_names : list of str or None (default=None)
             Fitted variables to plot, in order. By default, plot the selected
             variables returned by get_support(names=True).
-        ncols : int (default=2)
-            Maximum number of columns in the grid.
+        ncols : int or None (default=None)
+            Maximum number of columns in the grid. By default, use the ceiling
+            of the square root of the number of plotted variables.
         figsize : tuple or None (default=None)
             Figure size. By default, allocate 6 by 4.5 inches per panel.
         add_special : bool (default=True)
@@ -1666,9 +1667,10 @@ class BinningProcess(Base, BaseEstimator, BaseBinningProcess):
         the existing default metrics and standard bin layout for each type.
         """
         self._check_is_fitted()
-        if (isinstance(ncols, bool) or
+        if ncols is not None and (
+                isinstance(ncols, bool) or
                 not isinstance(ncols, numbers.Integral) or ncols < 1):
-            raise ValueError("ncols must be a positive integer.")
+            raise ValueError("ncols must be a positive integer or None.")
         if variable_names is None:
             names = list(self.get_support(names=True))
         else:
@@ -1689,6 +1691,8 @@ class BinningProcess(Base, BaseEstimator, BaseBinningProcess):
                 table.build()
             tables.append(table)
 
+        if ncols is None:
+            ncols = int(np.ceil(np.sqrt(len(names))))
         ncols = min(ncols, len(names))
         nrows = (len(names) + ncols - 1) // ncols
         fig, axes = plt.subplots(

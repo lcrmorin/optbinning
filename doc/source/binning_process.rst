@@ -12,8 +12,12 @@ Plotting several variables
 
 Plot selected variables using their existing binning-table charts::
 
-    fig, axes = binning_process.plot(ncols=2)
+    fig, axes = binning_process.plot()
     fig.savefig("binning_overview.png")
+
+By default, the grid uses ``ceil(sqrt(number of plotted variables))`` columns
+and enough rows to fit all variables. Override this with ``ncols=3``, for
+example. Unused panels are hidden.
 
 Choose a subset and its order with ``variable_names=["age", "income"]``.
 The grid supports standard binary, continuous and multiclass binning tables,
@@ -78,7 +82,7 @@ Declare categorical columns explicitly with ``categorical_variables``.
         max_n_bins=4)
     process.fit(X, y)
     fig, axes = process.plot(
-        ncols=3, figsize=(18, 14), add_special=False, add_missing=False)
+        figsize=(18, 14), add_special=False, add_missing=False)
     # Customize categorical labels through the returned axes.
     for ax, name in zip(axes.flat, X.columns):
         if name not in categorical:

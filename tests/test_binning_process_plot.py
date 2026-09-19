@@ -106,8 +106,18 @@ def test_selection_and_large_grid():
         names, selection_criteria={"iv": {"strategy": "highest", "top": 2}}
     ).fit(X, y)
     fig, axes = process.plot()
+    assert axes.shape == (1, 2)
     assert sum(ax.get_visible() for ax in axes.flat) == 2
     plt.close(fig)
+    for count, shape in [(4, (2, 2)), (5, (2, 3)), (8, (3, 3)),
+                         (9, (3, 3)), (10, (3, 4)), (26, (5, 6))]:
+        fig, axes = process.plot(variable_names=names[:count])
+        assert axes.shape == shape
+        assert sum(ax.get_visible() for ax in axes.flat) == count
+        visible_names = [ax.get_title() for ax in axes.flat
+                         if ax.get_visible()]
+        assert visible_names == names[:count]
+        plt.close(fig)
     fig, axes = process.plot(variable_names=names, ncols=5)
     assert axes.shape == (6, 5)
     assert sum(ax.get_visible() for ax in axes.flat) == 26
