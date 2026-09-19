@@ -1563,17 +1563,25 @@ class BinningTable:
         return self._quality_score
 
     @property
-    def df_tests(self):
+    def df_tests(self) -> pd.DataFrame:
         """Statistical significance tests between consecutive bins,
         computed by :meth:`analysis`.
 
         Returns a table with columns "Bin A", "Bin B", "t-statistic" (or
         "odd ratio" when ``pvalue_test="fisher"``), "p-value", "P[A > B]"
-        and "P[B > A]" -- one row per pair of adjacent bins. See #283.
+        and "P[B > A]" -- one row per pair of adjacent regular bins.
 
         Returns
         -------
         df_tests : pandas.DataFrame
+            A copy of the results from the most recent successful analysis.
+            Empty when fewer than two regular bins are available. Special,
+            missing and (when present) other-category bins are excluded.
+
+        Raises
+        ------
+        NotFittedError
+            If :meth:`analysis` has not been called successfully.
         """
         _check_is_analyzed(self)
 
@@ -2023,16 +2031,24 @@ class MulticlassBinningTable:
         return self._quality_score
 
     @property
-    def df_tests(self):
+    def df_tests(self) -> pd.DataFrame:
         """Statistical significance tests between consecutive bins,
         computed by :meth:`analysis`.
 
         Returns a table with columns "Bin A", "Bin B", "t-statistic" and
-        "p-value" -- one row per pair of adjacent bins. See #283.
+        "p-value" -- one row per pair of adjacent regular bins.
 
         Returns
         -------
         df_tests : pandas.DataFrame
+            A copy of the results from the most recent successful analysis.
+            Empty when fewer than two regular bins are available. Special,
+            missing and (when present) other-category bins are excluded.
+
+        Raises
+        ------
+        NotFittedError
+            If :meth:`analysis` has not been called successfully.
         """
         _check_is_analyzed(self)
 
@@ -2661,16 +2677,24 @@ class ContinuousBinningTable:
         return self._quality_score
 
     @property
-    def df_tests(self):
+    def df_tests(self) -> pd.DataFrame:
         """Statistical significance tests between consecutive bins,
         computed by :meth:`analysis`.
 
         Returns a table with columns "Bin A", "Bin B", "t-statistic" and
-        "p-value" -- one row per pair of adjacent bins. See #283.
+        "p-value" -- one row per pair of adjacent regular bins.
 
         Returns
         -------
         df_tests : pandas.DataFrame
+            A copy of the results from the most recent successful analysis.
+            Empty when fewer than two regular bins are available. Special,
+            missing and (when present) other-category bins are excluded.
+
+        Raises
+        ------
+        NotFittedError
+            If :meth:`analysis` has not been called successfully.
         """
         _check_is_analyzed(self)
 
