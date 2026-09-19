@@ -14,6 +14,7 @@ from warnings import warn
 
 from typing import Self
 
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -1628,3 +1629,80 @@ class BinningProcess(Base, BaseEstimator, BaseBinningProcess):
             df.to_csv(output_path, mode='a', index=False, header=(k == 0))
 
         return self
+
+
+    def plot(self, variable_names=None, ncols=2, figsize=None,
+             add_special=True, add_missing=True, show_bin_labels=False):
+        """Plot fitted variables in a grid using their existing binning plots.
+
+        Parameters
+        ----------
+        variable_names : list of str or None (default=None)
+            Fitted variables to plot, in order. By default, plot the selected
+            variables returned by get_support(names=True).
+        ncols : int (default=2)
+            Maximum number of columns in the grid.
+        figsize : tuple or None (default=None)
+            Figure size. By default, allocate 6 by 4.5 inches per panel.
+        add_special : bool (default=True)
+            Whether to include special-code bins.
+        add_missing : bool (default=True)
+            Whether to include missing-value bins.
+        show_bin_labels : bool (default=False)
+            Whether to show bin labels instead of bin IDs.
+
+        Returns
+        -------
+        fig : matplotlib.figure.Figure
+            The figure, which is neither shown nor closed automatically.
+        axes : numpy.ndarray
+            Two-dimensional array of primary axes. Unused panels are hidden;
+            each populated panel also has its existing secondary metric axis.
+
+        Notes
+        -----
+        Supports standard binary, continuous and multiclass binning tables.
+        Tables are built with default parameters if not already built. Uses
+        the existing default metrics and standard bin layout for each type.
+        """
+        self._check_is_fitted()
+        if (isinstance(ncols, bool) or
+                not isinstance(ncols, numbers.Integral) or ncols < 1):
+            raise ValueError("ncols must be a positive integer.")
+        if variable_names is None:
+            names = list(self.get_support(names=True))
+        else:
+            if not isinstance(variable_names, (list, tuple, np.ndarray)):
+                raise TypeError("variable_names must be a sequence of names.")
+            names = list(variable_names)
+        if not names:
+            raise ValueError("No variables to plot.")
+        if len(set(names)) != len(names):
+            raise ValueError("variable_names must not contain duplicates.")
+        tables = []
+        for name in names:
+            optb = self.get_binned_variable(name)
+            if isinstance(optb, _OPTBPW_TYPES):
+                raise TypeError("Piecewise binning plots are not supported.")
+            table = optb.binning_table
+            if not table._is_built:
+                table.build()
+            tables.append(table)
+
+        ncols = min(ncols, len(names))
+        nrows = (len(names) + ncols - 1) // ncols
+        fig, axes = plt.subplots(
+            nrows, ncols, squeeze=False,
+            figsize=figsize if figsize is not None else (6*ncols, 4.5*nrows),
+            layout="constrained")
+        try:
+            for ax, table in zip(axes.flat, tables):
+                table.plot(ax=ax, add_special=add_special,
+                           add_missing=add_missing,
+                           show_bin_labels=show_bin_labels)
+            for ax in list(axes.flat)[len(tables):]:
+                ax.set_visible(False)
+        except Exception:
+            plt.close(fig)
+            raise
+        return fig, axes
