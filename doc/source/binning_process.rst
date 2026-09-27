@@ -109,18 +109,23 @@ to use the inherited ``TransformerMixin.fit_transform`` implementation.
 Feature schema and refitting
 ----------------------------
 
-Inputs must be a two-dimensional NumPy array or pandas DataFrame. Sparse
+Inputs must be a two-dimensional array-like or pandas DataFrame. Lists and
+objects exposing the NumPy array protocol are converted using sklearn
+validation. DataFrames retain their column dtypes and index. Sparse
 inputs and complex-valued arrays are unsupported. Fitting requires at least
-one sample and one feature. DataFrame column names and explicit
-``variable_names`` must be unique strings; explicit names must match the
-DataFrame columns, although their order may differ.
+one sample and one feature. DataFrame column names must be unique strings
+or all numeric. Numeric
+column labels are converted to strings without modifying the input, for
+example ``0`` becomes ``"0"``. Mixed numeric/string labels are rejected.
+Explicit ``variable_names`` must be unique strings matching these normalized
+column names, although their order may differ.
 
 DataFrame transformation matches selected features by name, so columns may
 be reordered and unselected columns may be omitted. NumPy transformation
 requires the original number of features in their original order, even if
 selection leaves no output features. ``get_feature_names_out`` reports
 selected features in output order; its optional ``input_features`` argument
-must match the original input names and order.
+must match the normalized input names and their original order.
 
 Refitting replaces the previous fitted state, including feature metadata and
 selected variables. A failed refit leaves the process unfitted rather than
@@ -128,5 +133,6 @@ exposing bins from an earlier fit.
 
 The transformer supports sklearn cloning, pipelines, output containers and
 metadata routing, but does not yet satisfy every generic estimator check.
-General array-like inputs (such as lists), non-string DataFrame column names,
-and sample weights for continuous targets remain unsupported.
+Sample weights for continuous targets remain unsupported by the process;
+weights are supported for binary targets. Sparse inputs and mixed-type
+column names remain unsupported.

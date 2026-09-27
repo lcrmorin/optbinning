@@ -9,6 +9,8 @@ import numbers
 import pickle
 import time
 
+from collections.abc import Mapping
+
 from typing import Any
 from warnings import warn
 
@@ -75,8 +77,11 @@ def _check_feature_schema(X, fitting=False):
     if issparse(X):
         raise TypeError("Sparse input is not supported; use a dense array "
                         "or DataFrame.")
+    if isinstance(X, Mapping):
+        raise TypeError("X must be a two-dimensional array-like or DataFrame.")
     if not isinstance(X, (pd.DataFrame, np.ndarray)):
-        raise TypeError("X must be a pandas.DataFrame or numpy.ndarray.")
+        X = check_array(X, dtype=None, ensure_all_finite=False,
+                        ensure_min_samples=0, ensure_min_features=0)
     if X.ndim != 2:
         raise ValueError("X must be two-dimensional. Reshape your data.")
     if X.shape[0] == 0:
@@ -87,7 +92,11 @@ def _check_feature_schema(X, fitting=False):
     if np.iscomplexobj(X):
         raise ValueError("Complex data not supported.")
     if isinstance(X, pd.DataFrame):
+        # Keep pandas dtypes and index while giving binners string names.
+        if all(isinstance(name, numbers.Real) for name in X.columns):
+            X = X.rename(columns=str)
         _check_feature_names(list(X.columns))
+    return X
 
 
 def _check_feature_names(names):
@@ -674,7 +683,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
     def fit(
         self,
-        X: npt.NDArray | pd.DataFrame,
+        X: npt.ArrayLike | pd.DataFrame,
         y: npt.ArrayLike,
         sample_weight: npt.ArrayLike | None = None,
         check_input: bool = False
@@ -684,7 +693,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
         Parameters
         ----------
-        X : numpy.ndarray or pandas.DataFrame of shape (n_samples, n_features)
+        X : array-like or pandas.DataFrame of shape (n_samples, n_features)
             Training vector, where n_samples is the number of samples.
 
             .. versionchanged:: 0.4.0
@@ -751,7 +760,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
     def fit_transform(
         self,
-        X: npt.NDArray | pd.DataFrame,
+        X: npt.ArrayLike | pd.DataFrame,
         y: npt.ArrayLike,
         sample_weight: npt.ArrayLike | None = None,
         metric: str | None = None,
@@ -765,7 +774,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
         Parameters
         ----------
-        X : numpy.ndarray or pandas.DataFrame of shape (n_samples, n_features)
+        X : array-like or pandas.DataFrame of shape (n_samples, n_features)
             Training vector, where n_samples is the number of samples.
 
         y : array-like of shape (n_samples,)
@@ -886,7 +895,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
     def transform(
         self,
-        X: npt.NDArray | pd.DataFrame,
+        X: npt.ArrayLike | pd.DataFrame,
         metric: str | None = None,
         metric_special: float | str = 0,
         metric_missing: float | str = 0,
@@ -898,7 +907,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
         Parameters
         ----------
-        X : numpy.ndarray or pandas.DataFrame of shape (n_samples, n_features)
+        X : array-like or pandas.DataFrame of shape (n_samples, n_features)
             Training vector, where n_samples is the number of samples.
 
         metric : str or None, (default=None)
@@ -1255,7 +1264,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         _check_parameters(**self.get_params())
 
         # check X dtype
-        _check_feature_schema(X, fitting=True)
+        X = _check_feature_schema(X, fitting=True)
         check_consistent_length(X, y)
 
         # check target dtype
@@ -1615,7 +1624,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                    show_digits, check_input):
 
         # Check X dtype
-        _check_feature_schema(X)
+        X = _check_feature_schema(X)
 
         n_samples, n_variables = X.shape
 

@@ -14,7 +14,7 @@ def sample():
     return pd.DataFrame({'a': x, 'b': x + 1}), y
 
 
-@pytest.mark.parametrize('names', [['a', 'a'], [0, 1]])
+@pytest.mark.parametrize('names', [['a', 'a'], ['a', 1]])
 def test_invalid_dataframe_names(sample, names):
     X, y = sample
     X.columns = names
@@ -80,3 +80,40 @@ def test_complex_features_rejected(sample):
     X, y = sample
     with pytest.raises(ValueError, match="Complex data"):
         BinningProcess().fit(X.to_numpy().astype(complex) + 1j, y)
+
+
+@pytest.mark.parametrize("convert", [list, tuple, np.asarray])
+def test_array_like_inputs(sample, convert):
+    X, y = sample
+    values = X.to_numpy()
+    expected = BinningProcess().fit_transform(values, y)
+    process = BinningProcess()
+    actual = process.fit_transform(convert(values), y)
+    np.testing.assert_allclose(actual, expected)
+    np.testing.assert_allclose(process.transform(convert(values)), expected)
+    assert list(process.get_feature_names_out()) == ['x0', 'x1']
+
+
+def test_numeric_dataframe_columns(sample):
+    X, y = sample
+    X.columns = [10, 20]
+    original = X.copy(deep=True)
+    process = BinningProcess().fit(X, y)
+    assert list(process.get_feature_names_out()) == ['10', '20']
+    pd.testing.assert_frame_equal(process.transform(X),
+                                  process.transform(X[[20, 10]]))
+    pd.testing.assert_frame_equal(X, original)
+    pipeline = process.set_output(transform='pandas')
+    assert list(pipeline.transform(X).columns) == ['10', '20']
+
+
+@pytest.mark.parametrize("convert", [list, np.asarray, pd.Series])
+def test_binary_weights_with_array_like_inputs(sample, convert):
+    X, y = sample
+    X.columns = [0, 1]
+    weights = np.linspace(0.5, 1.5, len(y))
+    supplied = convert(weights)
+    expected = BinningProcess().fit_transform(X, y, sample_weight=weights)
+    actual = BinningProcess().fit_transform(X, y, sample_weight=supplied)
+    np.testing.assert_allclose(actual, expected)
+    np.testing.assert_array_equal(np.asarray(supplied), weights)
