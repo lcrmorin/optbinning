@@ -24,6 +24,7 @@ from sklearn.base import TransformerMixin
 from sklearn.exceptions import NotFittedError
 from sklearn.utils import check_array
 from sklearn.utils import check_consistent_length
+from sklearn.utils.validation import check_is_fitted, validate_data
 from sklearn.utils.multiclass import type_of_target
 
 from ..logging import Logger
@@ -1131,6 +1132,44 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         self._binned_variables[name] = optb
         self._is_updated = True
 
+    def __sklearn_is_fitted__(self) -> bool:
+        return self._is_fitted
+
+    def _check_is_fitted(self) -> None:
+        check_is_fitted(self)
+
+    def __sklearn_tags__(self):
+        tags = super().__sklearn_tags__()
+        tags.target_tags.required = True
+        tags.input_tags.allow_nan = True
+        tags.input_tags.categorical = True
+        tags.input_tags.string = True
+        tags.transformer_tags.preserves_dtype = []
+        return tags
+
+    def get_feature_names_out(
+        self, input_features: npt.ArrayLike | None = None
+    ) -> npt.NDArray:
+        """Return selected feature names, in transformation order.
+
+        Parameters
+        ----------
+        input_features : array-like of str or None (default=None)
+            If supplied, must match the fitted variable names in order.
+
+        Returns
+        -------
+        feature_names_out : ndarray of str
+            Names of the retained variables.
+        """
+        check_is_fitted(self)
+        names = np.asarray(self._variable_names, dtype=object)
+        if input_features is not None:
+            supplied = np.asarray(input_features, dtype=object)
+            if supplied.ndim != 1 or not np.array_equal(supplied, names):
+                raise ValueError("input_features must match fitted variable names.")
+        return names[self.get_support()].copy()
+
     def get_support(
         self,
         indices: bool = False,
@@ -1205,11 +1244,13 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
             _check_selection_criteria(self.selection_criteria,
                                       self._target_dtype)
 
+        # Register sklearn feature metadata without coercing pandas dtypes.
+        validate_data(self, X, reset=True, skip_check_array=True)
         input_names = list(X.columns) if isinstance(X, pd.DataFrame) else None
 
         # check X and y data
         if check_input:
-            X = check_array(X, ensure_2d=False, dtype=None,
+            check_array(X, ensure_2d=False, dtype=None,
                             ensure_all_finite='allow-nan')
 
             y = check_array(y, ensure_2d=False, dtype=None,
@@ -1337,6 +1378,8 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
             raise ValueError("variable_names cannot be None when using "
                              "fit_disk.")
         self._variable_names = self.variable_names
+        self.n_features_in_ = len(self._variable_names)
+        self.feature_names_in_ = np.asarray(self._variable_names, dtype=object)
 
         # Input file extension
         extension = input_path.split(".")[1]
@@ -1429,6 +1472,8 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
             raise ValueError("variable_names cannot be None when using "
                              "_fit_from_dict.")
         self._variable_names = self.variable_names
+        self.n_features_in_ = len(self._variable_names)
+        self.feature_names_in_ = np.asarray(self._variable_names, dtype=object)
 
         # Check variable names
         if set(dict_optb.keys()) != set(self._variable_names):
@@ -1513,8 +1558,8 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                  UserWarning)
             return np.empty(0).reshape((n_samples, 0))
 
-        if isinstance(X, np.ndarray) and len(mask) != n_variables:
-            raise ValueError("X has a different shape that during fitting.")
+        if isinstance(X, np.ndarray):
+            validate_data(self, X, reset=False, skip_check_array=True)
 
         if isinstance(X, pd.DataFrame):
             selected_variables = self.get_support(names=True)
