@@ -460,16 +460,14 @@ def test_default_transform_pandas():
         X_transform.values[:, 5], rel=1e-6)
 
 
-def test_target_dtype_autodetect_unchanged():
-    # type_of_target classifies an integer-valued continuous target
-    # (e.g. load_diabetes().target) as "multiclass". Auto-detection
-    # (target_dtype=None) must stay exactly as sklearn provides it. See
-    # GH issue #296.
+def test_target_dtype_numeric_defaults_to_regression():
+    # Integer-valued measurements now default to regression (GH #296),
+    # even though sklearn's general-purpose inference calls them multiclass.
     data = load_diabetes()
     y = data.target
 
     assert type_of_target(y) == "multiclass"
-    assert resolve_target_dtype(y) == "multiclass"
+    assert resolve_target_dtype(y) == "continuous"
 
     with raises(ValueError):
         _check_selection_criteria({"woe": {"min": 0.01}}, "multiclass")
@@ -494,10 +492,11 @@ def test_target_dtype_explicit_override():
     summary = process.summary()
     assert "woe" in summary.columns
 
-    # An integer-dtype target (e.g. load_wine()) is unaffected.
+    # Integer class labels now require an explicit multiclass override.
     y_wine = load_wine().target
     assert y_wine.dtype.kind == "i"
-    assert resolve_target_dtype(y_wine) == "multiclass"
+    assert resolve_target_dtype(y_wine) == "continuous"
+    assert resolve_target_dtype(y_wine, "multiclass") == "multiclass"
 
 
 def test_target_dtype_invalid():
@@ -532,7 +531,7 @@ def test_default_transform_multiclass():
     X = data.data
     y = data.target
 
-    process = BinningProcess(variable_names)
+    process = BinningProcess(variable_names, target_dtype="multiclass")
     process.fit(X, y)
     X_transform = process.transform(X, metric="mean_woe")
 

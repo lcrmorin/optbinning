@@ -25,7 +25,8 @@ from sklearn.exceptions import NotFittedError
 from sklearn.utils import check_array
 from sklearn.utils import check_consistent_length
 from sklearn.utils.validation import check_is_fitted, validate_data
-from sklearn.utils.multiclass import type_of_target
+from sklearn.preprocessing import LabelEncoder
+from .target import resolve_target_dtype
 
 from ..logging import Logger
 from .base import Base, BaseOptimalBinning
@@ -67,35 +68,6 @@ _OPTB_TYPES = (OptimalBinning, ContinuousOptimalBinning,
 
 
 _OPTBPW_TYPES = (OptimalPWBinning, ContinuousOptimalPWBinning)
-
-
-# type_of_target cannot tell an integer-valued continuous target (e.g.
-# sklearn.datasets.load_diabetes().target) from an integer-coded
-# classification target -- it always returns "multiclass" for both
-# (see GH issue #296). This is intentional sklearn behaviour, so
-# auto-detection is left as-is; target_dtype is the explicit override.
-def resolve_target_dtype(
-    y: npt.ArrayLike, target_dtype: str | None = None
-) -> str:
-    """Determine the target type.
-
-    Parameters
-    ----------
-    y : array-like of shape (n_samples,)
-        Target vector.
-
-    target_dtype : str or None, default=None
-        If None, inferred via ``sklearn.utils.multiclass.type_of_target``.
-        Otherwise used directly, skipping inference (see GH issue #296).
-
-    Returns
-    -------
-    target_dtype : str
-    """
-    if target_dtype is not None:
-        return target_dtype
-
-    return type_of_target(y)
 
 
 def _read_column(input_path, extension, column, **kwargs):
@@ -558,10 +530,10 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
     target_dtype : str or None, optional (default=None)
         The target type, one of "binary", "continuous" or "multiclass".
-        If None, inferred automatically via
-        ``sklearn.utils.multiclass.type_of_target``. Set explicitly to
-        override auto-detection, e.g. for an integer-valued continuous
-        target (see GH issue #296).
+        By default, numeric targets use continuous binning, except numeric
+        0/1 and booleans, which use binary binning. String targets use binary
+        or multiclass binning according to their class count. Numeric class
+        labels require an explicit override. Missing targets are rejected.
 
         .. versionadded:: 1.1.0
 
@@ -1218,6 +1190,21 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         else:
             return mask
 
+    def _target_fit_params(self):
+        params = self.binning_fit_params
+        if self._target_dtype != "binary" or params is None:
+            return params
+        result = {}
+        for name, options in params.items():
+            options = options.copy()
+            weights = options.get("class_weight")
+            if isinstance(weights, dict):
+                options["class_weight"] = {
+                    i: weights[label] for i, label in enumerate(self.classes_)
+                    if label in weights}
+            result[name] = options
+        return result
+
     def _fit(self, X, y, sample_weight, check_input):
         time_init = time.perf_counter()
 
@@ -1233,6 +1220,20 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
         # check target dtype
         self._target_dtype = resolve_target_dtype(y, self.target_dtype)
+        if self._target_dtype == "binary":
+            encoder = LabelEncoder().fit(np.asarray(y))
+            self.classes_ = encoder.classes_
+            y = encoder.transform(np.asarray(y))
+        else:
+            if hasattr(self, "classes_"):
+                del self.classes_
+            if self._target_dtype == "continuous":
+                y = np.asarray(y, dtype=float)
+            else:
+                y = np.asarray(y)
+                self.classes_ = np.unique(y)
+
+        binning_fit_params = self._target_fit_params()
 
         if self._target_dtype not in ("binary", "continuous", "multiclass"):
             raise ValueError(
@@ -1302,7 +1303,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                 if isinstance(X, np.ndarray):
                     dtype, optb = _fit_variable(
                         X[:, i], y, name, self._target_dtype,
-                        self.categorical_variables, self.binning_fit_params,
+                        self.categorical_variables, binning_fit_params,
                         self.max_n_prebins, self.min_prebin_size,
                         self.min_n_bins, self.max_n_bins, self.min_bin_size,
                         self.max_pvalue, self.max_pvalue_policy,
@@ -1310,7 +1311,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                 else:
                     dtype, optb = _fit_variable(
                         X[name], y, name, self._target_dtype,
-                        self.categorical_variables, self.binning_fit_params,
+                        self.categorical_variables, binning_fit_params,
                         self.max_n_prebins, self.min_prebin_size,
                         self.min_n_bins, self.max_n_bins, self.min_bin_size,
                         self.max_pvalue, self.max_pvalue_policy,
@@ -1328,7 +1329,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                     delayed(_fit_block)(
                         X[:, id_block], y, names[id_block],
                         self._target_dtype, self.categorical_variables,
-                        self.binning_fit_params, self.max_n_prebins,
+                        binning_fit_params, self.max_n_prebins,
                         self.min_prebin_size, self.min_n_bins,
                         self.max_n_bins, self.min_bin_size,
                         self.max_pvalue, self.max_pvalue_policy,
@@ -1340,7 +1341,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                     delayed(_fit_block)(
                         X[names[id_block]], y, names[id_block],
                         self._target_dtype, self.categorical_variables,
-                        self.binning_fit_params, self.max_n_prebins,
+                        binning_fit_params, self.max_n_prebins,
                         self.min_prebin_size, self.min_n_bins,
                         self.max_n_bins, self.min_bin_size,
                         self.max_pvalue, self.max_pvalue_policy,
@@ -1402,6 +1403,20 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         # Retrieve target and check dtype
         y = _read_column(input_path, extension, target, **kwargs)
         self._target_dtype = resolve_target_dtype(y, self.target_dtype)
+        if self._target_dtype == "binary":
+            encoder = LabelEncoder().fit(np.asarray(y))
+            self.classes_ = encoder.classes_
+            y = encoder.transform(np.asarray(y))
+        else:
+            if hasattr(self, "classes_"):
+                del self.classes_
+            if self._target_dtype == "continuous":
+                y = np.asarray(y, dtype=float)
+            else:
+                y = np.asarray(y)
+                self.classes_ = np.unique(y)
+
+        binning_fit_params = self._target_fit_params()
 
         if self._target_dtype not in ("binary", "continuous", "multiclass"):
             raise ValueError(
@@ -1435,7 +1450,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
 
             dtype, optb = _fit_variable(
                 x, y, name, self._target_dtype, self.categorical_variables,
-                self.binning_fit_params, self.max_n_prebins,
+                binning_fit_params, self.max_n_prebins,
                 self.min_prebin_size, self.min_n_bins, self.max_n_bins,
                 self.min_bin_size, self.max_pvalue, self.max_pvalue_policy,
                 self.special_codes, self.split_digits)

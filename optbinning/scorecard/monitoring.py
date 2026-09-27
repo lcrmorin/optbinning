@@ -11,6 +11,8 @@ from typing import Self
 
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mtick
+from ..binning.target import encode_binary_target, resolve_target_dtype
+
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
@@ -284,6 +286,16 @@ class ScorecardMonitoring(BaseEstimator):
         # Trust the already-fitted scorecard's own target type instead of
         # re-inferring it from y_actual/y_expected (GH issue #296).
         self._target_dtype = self.scorecard._target_dtype
+
+        if self._target_dtype == "binary":
+            classes = self.scorecard.binning_process_.classes_
+            y_actual = encode_binary_target(y_actual, classes)
+            y_expected = encode_binary_target(y_expected, classes)
+        else:
+            resolve_target_dtype(y_actual, "continuous")
+            resolve_target_dtype(y_expected, "continuous")
+            y_actual = np.asarray(y_actual, dtype=float)
+            y_expected = np.asarray(y_expected, dtype=float)
 
         # Check variable names
         if list(X_actual.columns) != list(X_expected.columns):
@@ -731,11 +743,13 @@ class ScorecardMonitoring(BaseEstimator):
                                    y_expected):
         # Metrics derived from confusion matrix
         y_true_a = y_actual
-        y_pred_a = self.scorecard.predict(X_actual)
+        y_pred_a = encode_binary_target(
+            self.scorecard.predict(X_actual), self.scorecard.binning_process_.classes_)
         d_metrics_a = imbalanced_classification_metrics(y_true_a, y_pred_a)
 
         y_true_e = y_expected
-        y_pred_e = self.scorecard.predict(X_expected)
+        y_pred_e = encode_binary_target(
+            self.scorecard.predict(X_expected), self.scorecard.binning_process_.classes_)
         d_metrics_e = imbalanced_classification_metrics(y_true_e, y_pred_e)
 
         metric_names = list(d_metrics_a.keys())

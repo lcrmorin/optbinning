@@ -17,7 +17,7 @@ import numpy.typing as npt
 import pandas as pd
 
 from sklearn.base import BaseEstimator
-from sklearn.base import clone
+from sklearn.base import clone, is_classifier
 
 from ..binning.base import Base
 from ..binning.binning_process import BinningProcess
@@ -224,11 +224,10 @@ class Scorecard(Base, BaseEstimator):
         are round to the nearest integer.
 
     target_dtype : str or None, optional (default=None)
-        The target type, one of "binary" or "continuous". If None,
-        inferred automatically via
-        ``sklearn.utils.multiclass.type_of_target``. Set explicitly to
-        override auto-detection, e.g. for an integer-valued continuous
-        target (see GH issue #296).
+        The target type, one of "binary" or "continuous". If None, use the
+        binning process override when set; otherwise infer regression for
+        numeric targets except binary 0/1 and booleans. Two-class string
+        targets are binary. Missing targets are always rejected.
 
         .. versionadded:: 1.1.0
 
@@ -592,7 +591,9 @@ class Scorecard(Base, BaseEstimator):
             raise TypeError("X must be a pandas.DataFrame.")
 
         # Target type and metric
-        self._target_dtype = resolve_target_dtype(y, self.target_dtype)
+        target_dtype = (self.target_dtype if self.target_dtype is not None
+                        else self.binning_process.target_dtype)
+        self._target_dtype = resolve_target_dtype(y, target_dtype)
 
         if self._target_dtype not in ("binary", "continuous"):
             raise ValueError(
@@ -600,6 +601,10 @@ class Scorecard(Base, BaseEstimator):
                 "incorrect for your target (e.g. a continuous target with "
                 "integer values), pass target_dtype explicitly."
                 .format(self._target_dtype))
+
+        if self._target_dtype == "continuous" and is_classifier(self.estimator):
+            raise ValueError("A continuous target requires a regression estimator. "
+                             "Set target_dtype='binary' for numeric class labels.")
 
         _check_scorecard_scaling(self.scaling_method,
                                  self.scaling_method_params,

@@ -35,3 +35,29 @@ against the fitted variable names. DataFrame transformation continues to
 select columns by name, so columns may be reordered and unselected columns
 may be omitted. This is intentionally more permissive than strict positional
 feature-name validation. Array inputs must have the fitted number of columns.
+
+
+Target interpretation on the sklearn integration branch
+-------------------------------------------------------
+
+Numeric targets default to regression, including integer-valued measurements.
+Booleans and numeric 0/1 targets retain the binary event convention. String
+labels select binary binning for two classes and multiclass binning for more.
+Numeric categories also default to regression; specify
+``target_dtype="multiclass"`` for numeric class labels, or
+``target_dtype="binary"`` for two numeric classes other than 0/1.
+
+Explicit overrides never bypass validation: targets must be one-dimensional,
+non-empty, non-missing, and contain either real finite numbers or strings.
+Continuous targets must be numeric. This policy intentionally differs from
+scikit-learn's general-purpose ``type_of_target`` inference.
+
+Binary labels are encoded using scikit-learn's ``LabelEncoder``. The fitted
+``classes_`` records the mapping: the first sorted class is the non-event
+(code 0), the second is the event (code 1). To choose another event meaning,
+encode the target as 0/1 before fitting. Per-variable class-weight dictionaries
+use the original labels. Multiclass tables retain their original class labels.
+
+Scorecard uses its own explicit override first, then the binning process's
+override, then this inference policy. Its estimator retains the original
+labels for predictions, and monitoring uses the same fitted class mapping.

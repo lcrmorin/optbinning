@@ -234,11 +234,8 @@ def test_binning_process_variable_names_none():
     assert len(table) > 0
 
 
-def test_target_dtype_autodetect_unchanged():
-    # An integer-valued continuous target (e.g. load_diabetes().target)
-    # is classified "multiclass" by type_of_target, which Scorecard
-    # doesn't support, so fit() raises unless target_dtype is passed
-    # explicitly (see next test). See GH issue #296.
+def test_target_dtype_numeric_defaults_to_regression():
+    # Integer-valued measurements now use regression without an override.
     data = load_diabetes()
     variable_names = data.feature_names
     X = pd.DataFrame(data.data, columns=variable_names)
@@ -250,8 +247,8 @@ def test_target_dtype_autodetect_unchanged():
     scorecard = Scorecard(binning_process=binning_process,
                           estimator=estimator, scaling_method=None)
 
-    with raises(ValueError):
-        scorecard.fit(X, y)
+    scorecard.fit(X, y)
+    assert scorecard._target_dtype == "continuous"
 
 
 def test_target_dtype_explicit_override():
