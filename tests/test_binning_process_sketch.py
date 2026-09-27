@@ -183,3 +183,14 @@ def test_information():
     bpsketch.information(print_level=0)
     bpsketch.information(print_level=1)
     bpsketch.information(print_level=2)
+
+
+def test_selection_criteria_with_explicit_names():
+    names = list(variable_names[:2])
+    process = BinningProcessSketch(
+        names, selection_criteria={"iv": {"min": 0}})
+    process.add(df[names], y)
+    process.solve()
+    assert list(process.summary()["name"]) == names
+    assert list(process.get_support(names=True)) == names
+    assert process.transform(df[names]).shape == (len(y), len(names))

@@ -438,13 +438,16 @@ class BaseBinningProcess:
                     self._support &= support
 
         # Fixed variables
-        if self.fixed_variables is not None:
+        if getattr(self, "fixed_variables", None) is not None:
             for fv in self.fixed_variables:
                 idfv = list(self._variable_names).index(fv)
                 self._support[idfv] = True
 
     def _binning_selection_criteria(self) -> None:
-        for i, name in enumerate(self._variable_names):
+        # Batch fitting resolves names from input; sketches require explicit
+        # names and do not maintain the batch estimator's fitted metadata.
+        names = getattr(self, "_variable_names", self.variable_names)
+        for i, name in enumerate(names):
             optb = self._binned_variables[name]
             optb.binning_table.build()
 
