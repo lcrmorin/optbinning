@@ -14,6 +14,8 @@ from typing import Self
 import numpy as np
 import numpy.typing as npt
 
+from sklearn.utils.validation import _check_sample_weight
+from sklearn.utils import check_consistent_length
 from sklearn.utils import check_array
 import pandas as pd
 
@@ -22,10 +24,12 @@ from ..logging import Logger
 from .auto_monotonic import auto_monotonic_continuous
 from .auto_monotonic import peak_valley_trend_change_heuristic
 from .binning import OptimalBinning
+from .binning_statistics import weighted_target_info
 from .binning_statistics import continuous_bin_info
 from .binning_statistics import ContinuousBinningTable
 from .binning_statistics import target_info_special_continuous
 from .continuous_cp import ContinuousBinningCP
+from .prebinning import PreBinning
 from .preprocessing import _check_variable_dtype
 from .preprocessing import preprocessing_user_splits_categorical
 from .preprocessing import split_data
@@ -489,7 +493,8 @@ class ContinuousOptimalBinning(OptimalBinning):
         sample_weight : array-like of shape (n_samples,) (default=None)
             Array of weights that are assigned to individual samples.
             If not provided, then each sample is given unit weight.
-            Only applied if ``prebinning_method="cart"``.
+            Weights apply to bin statistics and CART prebinning. They must
+            be finite and non-negative, with positive total mass.
 
         check_input : bool (default=False)
             Whether to check input arrays.
@@ -526,7 +531,8 @@ class ContinuousOptimalBinning(OptimalBinning):
         sample_weight : array-like of shape (n_samples,) (default=None)
             Array of weights that are assigned to individual samples.
             If not provided, then each sample is given unit weight.
-            Only applied if ``prebinning_method="cart"``.
+            Weights apply to bin statistics and CART prebinning. They must
+            be finite and non-negative, with positive total mass.
 
         metric : str (default="mean")
             The metric used to transform the input vector. Supported metrics
@@ -643,6 +649,16 @@ class ContinuousOptimalBinning(OptimalBinning):
         else:
             self._dtype = self.dtype
 
+        x, y = np.asarray(x), np.asarray(y, dtype=float)
+        check_consistent_length(x, y)
+        sample_weight = _check_sample_weight(sample_weight, x, dtype=float,
+                                            copy=True)
+        if np.any(sample_weight < 0) or not np.any(sample_weight > 0):
+            raise ValueError("sample_weight must be non-negative with "
+                             "positive total.")
+        positive = sample_weight > 0
+        x, y, sample_weight = x[positive], y[positive], sample_weight[positive]
+
         # Pre-processing
         if self.verbose:
             logger.info("Pre-processing started.")
@@ -670,7 +686,8 @@ class ContinuousOptimalBinning(OptimalBinning):
          sw_others] = split_data(
             self._dtype, x, y, self.special_codes, self.cat_cutoff,
             self.user_splits, check_input, self.outlier_detector,
-            self.outlier_params, None, None, None, sample_weight)
+            self.outlier_params, None, None, None, sample_weight,
+            weighted_categorical=True)
 
         self._time_preprocessing = time.perf_counter() - time_preprocessing
 
@@ -724,10 +741,11 @@ class ContinuousOptimalBinning(OptimalBinning):
                             .format(n_splits))
 
             if not n_splits:
-                splits = self.user_splits
-                n_records = np.array([])
-                sums = np.array([])
-                stds = np.array([])
+                (splits, n_records, sums, ssums, stds, min_t, max_t,
+                 n_zeros) = self._prebinning_refinement(
+                    self.user_splits, x_clean, y_clean, y_missing, x_special,
+                    y_special, y_others, sw_clean, sw_missing, sw_special,
+                    sw_others)
             else:
                 if self._dtype == "numerical":
                     user_splits = check_array(
@@ -743,7 +761,8 @@ class ContinuousOptimalBinning(OptimalBinning):
                     [categories, user_splits, x_clean, y_clean, y_others,
                      cat_others, sw_clean, sw_others, sorted_idx
                      ] = preprocessing_user_splits_categorical(
-                        self.user_splits, x_clean, y_clean, sw_clean)
+                        self.user_splits, x_clean, y_clean, sw_clean,
+                        weighted=True)
 
                 if self.user_splits_fixed is not None:
                     self.user_splits_fixed = np.asarray(
@@ -785,14 +804,8 @@ class ContinuousOptimalBinning(OptimalBinning):
         time_postprocessing = time.perf_counter()
 
         if not len(splits):
-            n_records = np.sum(sw_clean)
-            sw_y_clean = sw_clean * y_clean
-            sums = np.sum(sw_y_clean)
-            ssums = np.sum(sw_y_clean ** 2)
-            n_zeros = np.count_nonzero(sw_y_clean == 0)
-            stds = np.std(sw_y_clean)
-            min_t = np.min(sw_y_clean)
-            max_t = np.max(sw_y_clean)
+            (n_records, sums, ssums, stds, min_t, max_t,
+             n_zeros) = weighted_target_info(y_clean, sw_clean)
 
         [self._n_records, self._sums, self._stds, self._min_target,
          self._max_target, self._n_zeros] = continuous_bin_info(
@@ -863,14 +876,12 @@ class ContinuousOptimalBinning(OptimalBinning):
             return
 
         if self.min_bin_size is not None:
-            min_bin_size = int(
-                np.ceil(self.min_bin_size * self._n_samples_weighted))
+            min_bin_size = self.min_bin_size * self._n_samples_weighted
         else:
             min_bin_size = self.min_bin_size
 
         if self.max_bin_size is not None:
-            max_bin_size = int(
-                np.ceil(self.max_bin_size * self._n_samples_weighted))
+            max_bin_size = self.max_bin_size * self._n_samples_weighted
         else:
             max_bin_size = self.max_bin_size
 
@@ -953,6 +964,18 @@ class ContinuousOptimalBinning(OptimalBinning):
             logger.info("Optimizer terminated. Time: {:.4f}s"
                         .format(self._time_solver))
 
+    def _fit_prebinning(self, x, y, y_missing, x_special, y_special, y_others,
+                        class_weight=None, sw_clean=None, sw_missing=None,
+                        sw_special=None, sw_others=None):
+        prebinning = PreBinning(
+            method=self.prebinning_method, n_bins=self.max_n_prebins,
+            min_bin_size=self.min_prebin_size * self._n_samples_weighted,
+            problem_type=self._problem_type, **self.prebinning_kwargs
+        ).fit(x, y, sw_clean)
+        return self._prebinning_refinement(
+            prebinning.splits, x, y, y_missing, x_special, y_special, y_others,
+            sw_clean, sw_missing, sw_special, sw_others)
+
     def _prebinning_refinement(
         self,
         splits_prebinning: np.ndarray,
@@ -975,27 +998,12 @@ class ContinuousOptimalBinning(OptimalBinning):
          self._max_target_special] = target_info_special_continuous(
             self.special_codes, x_special, y_special, sw_special)
 
-        if len(sw_missing):
-            y_missing = y_missing * sw_missing
-
-        self._n_records_missing = np.sum(sw_missing)
-        self._sum_missing = np.sum(y_missing)
-        self._n_zeros_missing = np.count_nonzero(y_missing == 0)
-        if len(y_missing):
-            self._std_missing = np.std(y_missing)
-            self._min_target_missing = np.min(y_missing)
-            self._max_target_missing = np.max(y_missing)
-
-        if len(y_others):
-            if len(sw_others):
-                y_others = y_others * sw_others
-
-            self._n_records_cat_others = np.sum(sw_others)
-            self._sum_cat_others = np.sum(y_others)
-            self._std_cat_others = np.std(y_others)
-            self._min_target_others = np.min(y_others)
-            self._max_target_others = np.max(y_others)
-            self._n_zeros_others = np.count_nonzero(y_others == 0)
+        (self._n_records_missing, self._sum_missing, _, self._std_missing,
+         self._min_target_missing, self._max_target_missing,
+         self._n_zeros_missing) = weighted_target_info(y_missing, sw_missing)
+        (self._n_records_cat_others, self._sum_cat_others, _, self._std_cat_others,
+         self._min_target_others, self._max_target_others,
+         self._n_zeros_others) = weighted_target_info(y_others, sw_others)
 
         n_splits = len(splits_prebinning)
 
@@ -1034,26 +1042,19 @@ class ContinuousOptimalBinning(OptimalBinning):
             indices = np.digitize(x, splits_prebinning, right=False)
             n_bins = n_splits + 1
 
-        n_records = np.empty(n_bins, dtype=np.int64)
+        n_records = np.empty(n_bins, dtype=float)
         sums = np.empty(n_bins)
         ssums = np.empty(n_bins)
         stds = np.zeros(n_bins)
-        n_zeros = np.empty(n_bins, dtype=np.int64)
+        n_zeros = np.empty(n_bins, dtype=float)
         min_t = np.full(n_bins, -np.inf)
         max_t = np.full(n_bins, np.inf)
 
         # Compute prebin information
         for i in range(n_bins):
             mask = (indices == i)
-            n_records[i] = np.sum(sw[mask])
-            ymask = sw[mask] * y[mask]
-            sums[i] = np.sum(ymask)
-            ssums[i] = np.sum(sw[mask] * (y[mask] ** 2))
-            n_zeros[i] = np.count_nonzero(ymask == 0)
-            if len(ymask):
-                stds[i] = np.std(ymask)
-                min_t[i] = np.min(ymask)
-                max_t[i] = np.max(ymask)
+            (n_records[i], sums[i], ssums[i], stds[i], min_t[i], max_t[i],
+             n_zeros[i]) = weighted_target_info(y[mask], sw[mask])
 
         mask_remove = (n_records == 0)
 

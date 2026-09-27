@@ -304,7 +304,7 @@ def continuous_model_data(
         s_ssums = ssums[:i][::-1].cumsum()[::-1]
 
         mean = s_sums / s_n_records
-        std = np.sqrt(s_ssums / s_n_records - mean ** 2)
+        std = np.sqrt(np.maximum(0, s_ssums / s_n_records - mean ** 2))
         norm = np.absolute(mean - t_mean)
 
         if scale is not None:

@@ -49,6 +49,16 @@ class ContinuousBinningCP(BinningCP):
 
         n = len(n_records)
 
+        # CP-SAT requires integer coefficients for bin-size constraints.
+        # Keep moments in original weight units; only quantize constraint mass.
+        scale = (1 if np.all(n_records == np.floor(n_records))
+                 else 1e6 / n_records.sum())
+        n_records = np.rint(n_records * scale).astype(np.int64)
+        if self.min_bin_size is not None:
+            self.min_bin_size = int(np.ceil(self.min_bin_size * scale))
+        if self.max_bin_size is not None:
+            self.max_bin_size = int(np.floor(self.max_bin_size * scale))
+
         # Initialize model
         model = cp_model.CpModel()
 

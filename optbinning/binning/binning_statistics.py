@@ -315,6 +315,20 @@ def target_info_special_multiclass(
     return n_event
 
 
+def weighted_target_info(y, sw):
+    """Frequency-weighted population statistics; zero weights contribute nothing."""
+    y, sw = np.asarray(y, dtype=float), np.asarray(sw, dtype=float)
+    positive = sw > 0
+    y, sw = y[positive], sw[positive]
+    count = sw.sum()
+    if not count:
+        return 0., 0., 0., 0., np.nan, np.nan, 0.
+    total = np.dot(sw, y)
+    squares = np.dot(sw, y ** 2)
+    std = np.sqrt(np.average((y - total / count) ** 2, weights=sw))
+    return count, total, squares, std, y.min(), y.max(), sw[y == 0].sum()
+
+
 def target_info_special_continuous(
     special_codes: dict | list | None,
     x: npt.NDArray,
@@ -358,57 +372,21 @@ def target_info_special_continuous(
     max_target : list of float or None
         Maximum target value for special codes.
     """
+    def info(ym, wm):
+        count, total, _, std, lo, hi, zeros = weighted_target_info(ym, wm)
+        return count, total, zeros, std, lo, hi
+
     if isinstance(special_codes, dict):
-        n_records_special = []
-        sum_special = []
-        n_zeros_special = []
-        # Must always start as lists, never None: the loop below calls
-        # .append() on these per special-code group regardless of
-        # whether any group is empty (GH #340).
-        std_special = []
-        min_target_special = []
-        max_target_special = []
-
+        result = [[] for _ in range(6)]
         xt = pd.Series(x)
-        for s in special_codes.values():
-            sl = s if isinstance(s, (list, np.ndarray)) else [s]
-            mask = xt.isin(sl).values
-
-            n_records = np.sum(sw[mask])
-            n_records_special.append(n_records)
-
-            ymask = sw[mask] * y[mask]
-            sum_special.append(np.sum(ymask))
-            n_zeros_special.append(np.count_nonzero(ymask == 0))
-
-            if n_records:
-                std_special.append(np.std(ymask))
-                min_target_special.append(np.min(ymask))
-                max_target_special.append(np.max(ymask))
-            else:
-                std_special.append(0)
-                min_target_special.append(0)
-                max_target_special.append(0)
-    else:
-        if len(sw):
-            sw_y = sw * y
-        else:
-            sw_y = y
-
-        n_records_special = np.sum(sw)
-        sum_special = np.sum(sw_y)
-        n_zeros_special = np.count_nonzero(sw_y == 0)
-        if len(y):
-            std_special = np.std(sw_y)
-            min_target_special = np.min(sw_y)
-            max_target_special = np.max(sw_y)
-        else:
-            std_special = None
-            min_target_special = None
-            max_target_special = None
-
-    return (n_records_special, sum_special, n_zeros_special, std_special,
-            min_target_special, max_target_special)
+        for codes in special_codes.values():
+            codes = codes if isinstance(codes, (list, np.ndarray)) else [codes]
+            mask = xt.isin(codes).values
+            values = info(y[mask], sw[mask])
+            for column, value in zip(result, values):
+                column.append(value)
+        return tuple(result)
+    return info(y, sw)
 
 
 def bin_info(
@@ -577,7 +555,7 @@ def nstd(
     std : float or numpy.ndarray
         Standard deviation.
     """
-    return np.sqrt(ss / records - (s / records) ** 2)
+    return np.sqrt(np.maximum(0, ss / records - (s / records) ** 2))
 
 
 def continuous_bin_info(
@@ -790,10 +768,10 @@ def continuous_bin_info(
     min_t.append(min_target_missing)
     max_t.append(max_target_missing)
 
-    return (np.array(r).astype(np.int64), np.array(s).astype(np.float64),
+    return (np.array(r).astype(np.float64), np.array(s).astype(np.float64),
             np.array(st).astype(np.float64),
             np.array(min_t).astype(np.float64),
-            np.array(max_t).astype(np.float64), np.array(z).astype(np.int64))
+            np.array(max_t).astype(np.float64), np.array(z).astype(np.float64))
 
 
 def _check_build_parameters(

@@ -81,6 +81,7 @@ def split_data(
     fix_ub: float | None = None,
     class_weight: str | dict | None = None,
     sample_weight: list | npt.NDArray | None = None,
+    weighted_categorical: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray,
            np.ndarray | list, np.ndarray | list, np.ndarray | list,
            np.ndarray | list, np.ndarray | list, np.ndarray | list,
@@ -301,8 +302,13 @@ def split_data(
 
     if dtype == "categorical" and user_splits is None:
         if cat_cutoff is not None:
-            mask_others, others = categorical_cutoff(
-                x_clean, y_clean, cat_cutoff)
+            if weighted_categorical:
+                mass = pd.Series(sw_clean).groupby(x_clean).sum()
+                others = mass[mass < cat_cutoff * sw_clean.sum()].index.values
+                mask_others = pd.Series(x_clean).isin(others).values
+            else:
+                mask_others, others = categorical_cutoff(
+                    x_clean, y_clean, cat_cutoff)
 
             y_others = y_clean[mask_others]
             sw_others = sw_clean[mask_others]
@@ -314,7 +320,14 @@ def split_data(
             others = []
             sw_others = []
 
-        categories, x_clean = categorical_transform(x_clean, y_clean)
+        if weighted_categorical:
+            mass = pd.Series(sw_clean).groupby(x_clean).sum()
+            total = pd.Series(sw_clean * y_clean).groupby(x_clean).sum()
+            categories = (total / mass).sort_values().index.values
+            mapping = dict(zip(categories, range(len(categories))))
+            x_clean = pd.Series(x_clean).map(mapping).values
+        else:
+            categories, x_clean = categorical_transform(x_clean, y_clean)
 
         return (x_clean, y_clean, x_missing, y_missing, x_special, y_special,
                 y_others, categories, others, sw_clean, sw_missing, sw_special,
@@ -368,6 +381,7 @@ def preprocessing_user_splits_categorical(
     x: list | npt.NDArray,
     y: list | npt.NDArray,
     sample_weight: list | npt.NDArray | None = None,
+    weighted: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray,
            np.ndarray, list | np.ndarray, list | np.ndarray, np.ndarray]:
     categories = pd.Series(x).unique()
@@ -408,7 +422,11 @@ def preprocessing_user_splits_categorical(
     event_rate = np.zeros(n_user_splits)
     x_p = pd.Series(x_clean)
     for i, split in enumerate(user_splits):
-        event_rate[i] = y_clean[x_p.isin(split)].mean()
+        mask = x_p.isin(split).values
+        if weighted and np.any(mask):
+            event_rate[i] = np.average(y_clean[mask], weights=sw_clean[mask])
+        else:
+            event_rate[i] = y_clean[mask].mean()
 
     splits_nominal = np.array(range(n_user_splits))
     sorted_idx = np.argsort(event_rate)
