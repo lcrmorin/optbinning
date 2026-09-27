@@ -79,8 +79,8 @@ request weights on every step that should consume them::
         pipeline = Pipeline([("binning", process), ("model", estimator)])
         pipeline.fit(X, y, sample_weight=weights)
 
-This example requires a binary target because weighted fitting in
-``BinningProcess`` is currently supported only for binary targets. Each step
+This classifier example requires a binary target. Weighted fitting in
+``BinningProcess`` supports binary and continuous targets. Each step
 receives the original sample weights. Requesting them at the estimator alone
 does not make the binning step weighted.
 
@@ -132,7 +132,21 @@ selected variables. A failed refit leaves the process unfitted rather than
 exposing bins from an earlier fit.
 
 The transformer supports sklearn cloning, pipelines, output containers and
-metadata routing, but does not yet satisfy every generic estimator check.
-Sample weights for continuous targets remain unsupported by the process;
-weights are supported for binary targets. Sparse inputs and mixed-type
-column names remain unsupported.
+metadata routing. Sparse inputs and mixed-type column names remain unsupported.
+
+Continuous sample weights
+-------------------------
+
+Continuous targets accept finite, non-negative sample weights with positive
+total mass. Zero-weight observations are excluded. Counts (including zero
+counts), sums, means and population standard deviations are weighted; minima
+and maxima use original target values with positive weight. Fractional counts
+are retained. Categorical ordering and rare-category grouping also use weights.
+Integer weights represent repeated observations.
+
+CART prebinning uses weights; the other prebinning methods retain their own
+unweighted split-generation rules. Bin-size fractions refer to weight mass.
+CP-SAT bin-size constraints quantize fractional prebin masses to one million
+units of the total clean mass; reported statistics retain the original weights.
+Multiclass targets still do not accept sample weights. Data-driven outlier
+filters remain unweighted, so they need not match filtering repeated rows.

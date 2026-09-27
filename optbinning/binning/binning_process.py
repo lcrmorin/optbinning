@@ -164,7 +164,7 @@ def _fit_variable(x, y, name, target_dtype, categorical_variables,
 
     optb.set_params(**params)
 
-    if target_dtype == "binary":
+    if target_dtype in ("binary", "continuous"):
         optb.fit(x, y, sample_weight)
     else:
         optb.fit(x, y)
@@ -705,8 +705,8 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         sample_weight : array-like of shape (n_samples,) (default=None)
             Array of weights that are assigned to individual samples.
             If not provided, then each sample is given unit weight.
-            Only applied if ``prebinning_method="cart"``. This option is only
-            available for a binary target.
+            Weights apply to bin statistics and CART prebinning. This option
+            is available for binary and continuous targets.
 
         check_input : bool (default=False)
             Whether to check input arrays.
@@ -783,8 +783,8 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         sample_weight : array-like of shape (n_samples,) (default=None)
             Array of weights that are assigned to individual samples.
             If not provided, then each sample is given unit weight.
-            Only applied if ``prebinning_method="cart"``. This option is only
-            available for a binary target.
+            Weights apply to bin statistics and CART prebinning. This option
+            is available for binary and continuous targets.
 
         metric : str or None, (default=None)
             The metric used to transform the input vector. If None, the default
@@ -1292,7 +1292,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                 .format(self._target_dtype))
 
         # check sample weight
-        if sample_weight is not None and self._target_dtype != "binary":
+        if sample_weight is not None and self._target_dtype == "multiclass":
             raise ValueError("Target type {} does not support sample weight."
                              .format(self._target_dtype))
 
