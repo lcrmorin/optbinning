@@ -736,3 +736,26 @@ def test_dataframe_index():
     X_train = pd.DataFrame(X, columns=variable_names, index=[2 * i for i in range(len(X))])
     X_transform = process.fit_transform(X_train, y, metric="indices")
     pd.testing.assert_index_equal(X_train.index, X_transform.index)
+
+
+def test_inferred_names_with_input_validation():
+    df = pd.DataFrame(X[:, :2], columns=["a", "b"])
+    process = BinningProcess().fit(df, y, check_input=True)
+    assert list(process.get_support(names=True)) == ["a", "b"]
+    assert process.variable_names is None
+    assert clone(process).variable_names is None
+    assert list(process.transform(df).columns) == ["a", "b"]
+
+
+def test_inferred_dtype_from_fitted_binners():
+    values = np.repeat([0., 1., 2.], 100)
+    target = np.concatenate([np.r_[np.zeros(100-n), np.ones(n)]
+                             for n in [10, 50, 90]])
+    fitted = OptimalBinning(name="x").fit(values, target)
+    assert fitted.dtype is None
+    process = BinningProcess(["x"]).fit_from_dict({"x": fitted})
+    summary = process.summary()
+    assert summary.loc[0, "dtype"] == "numerical"
+    assert summary.loc[0, "n_bins"] == len(fitted.splits) + 1
+    np.testing.assert_allclose(process.transform(values[:, None]).ravel(),
+                               fitted.transform(values))

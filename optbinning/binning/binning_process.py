@@ -435,18 +435,15 @@ class BaseBinningProcess:
                 self._support[idfv] = True
 
     def _binning_selection_criteria(self) -> None:
-        for i, name in enumerate(self.variable_names):
+        for i, name in enumerate(self._variable_names):
             optb = self._binned_variables[name]
             optb.binning_table.build()
 
+            dtype = ("numerical" if isinstance(optb, _OPTBPW_TYPES)
+                     else getattr(optb, "_dtype", optb.dtype))
             n_bins = len(optb.splits)
-            if isinstance(optb, OptimalPWBinning) or optb.dtype == "numerical":
+            if dtype == "numerical":
                 n_bins += 1
-
-            if isinstance(optb, OptimalPWBinning):
-                dtype = "numerical"
-            else:
-                dtype = optb.dtype
 
             info = {"dtype": dtype,
                     "status": optb.status,
@@ -1208,6 +1205,8 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
             _check_selection_criteria(self.selection_criteria,
                                       self._target_dtype)
 
+        input_names = list(X.columns) if isinstance(X, pd.DataFrame) else None
+
         # check X and y data
         if check_input:
             X = check_array(X, ensure_2d=False, dtype=None,
@@ -1221,8 +1220,8 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         self._n_samples, self._n_variables = X.shape
 
         if self.variable_names is None:
-            if isinstance(X, pd.DataFrame):
-                self._variable_names = list(X.columns)
+            if input_names is not None:
+                self._variable_names = input_names
             else:
                 self._variable_names = ["x{}".format(i)
                                         for i in range(self._n_variables)]
@@ -1481,7 +1480,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         self._n_variables = len(self._variable_names)
 
         for name, optb in dict_optb.items():
-            self._variable_dtypes[name] = optb.dtype
+            self._variable_dtypes[name] = getattr(optb, "_dtype", optb.dtype)
             self._binned_variables[name] = optb
 
         # Compute binning statistics and decide whether a variable is selected

@@ -1333,6 +1333,8 @@ class OptimalBinning(BaseOptimalBinning):
 
         self._binning_table = BinningTable(**bin_table_attr)
 
+        self._dtype = bin_table_attr["dtype"]
+
         # Restore the internal state used by ``transform``. Without this,
         # a binning object reloaded via ``read_json`` raises a TypeError
         # on ``transform`` because these attributes are only set during
