@@ -70,3 +70,35 @@ def test_name_based_transform_and_array_validation(sample):
                                   process.transform(X[['b', 'a']]))
     with pytest.raises(ValueError):
         process.transform(np.zeros((3, 3)))
+
+
+def test_default_fit_transform_delegates_and_legacy_options(sample):
+    from unittest.mock import patch
+    from sklearn.base import TransformerMixin
+    X, y = sample
+    inherited = TransformerMixin.fit_transform
+    with patch.object(TransformerMixin, 'fit_transform', autospec=True,
+                      side_effect=inherited) as delegate:
+        process = BinningProcess()
+        result = process.fit_transform(X, y, sample_weight=np.ones(len(y)))
+        assert delegate.call_count == 1
+        np.testing.assert_allclose(result, process.transform(X))
+
+    # Scorecard and existing users can still pass transformation options.
+    with patch.object(TransformerMixin, 'fit_transform') as delegate:
+        process = BinningProcess()
+        result = process.fit_transform(X, y, metric='event_rate',
+                                       metric_missing='empirical')
+        delegate.assert_not_called()
+        np.testing.assert_allclose(result, process.transform(
+            X, metric='event_rate', metric_missing='empirical'))
+
+
+def test_column_transformer_feature_names(sample):
+    from sklearn.compose import ColumnTransformer
+    X, y = sample
+    transformer = ColumnTransformer([
+        ('bins', BinningProcess(), ['a', 'b'])]).set_output(transform='pandas')
+    result = transformer.fit_transform(X, y)
+    assert list(result.columns) == ['bins__a', 'bins__b']
+    pd.testing.assert_index_equal(result.index, X.index)

@@ -810,6 +810,12 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         X_new : numpy array, shape = (n_samples, n_features_new)
             Transformed array.
         """
+        if (metric is None and metric_special == 0 and metric_missing == 0
+                and show_digits == 2 and not check_input):
+            return super().fit_transform(X, y, sample_weight=sample_weight)
+
+        # Preserve legacy per-call transformation options; TransformerMixin
+        # forwards keyword arguments to fit only, not to transform.
         return self.fit(X, y, sample_weight, check_input).transform(
             X, metric, metric_special, metric_missing, show_digits,
             check_input)
