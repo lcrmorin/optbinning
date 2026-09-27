@@ -61,3 +61,46 @@ use the original labels. Multiclass tables retain their original class labels.
 Scorecard uses its own explicit override first, then the binning process's
 override, then this inference policy. Its estimator retains the original
 labels for predictions, and monitoring uses the same fitted class mapping.
+
+
+Routing sample weights in pipelines
+----------------------------------
+
+Metadata routing is inherited from scikit-learn. Enable it and explicitly
+request weights on every step that should consume them::
+
+    from sklearn import config_context
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import Pipeline
+
+    with config_context(enable_metadata_routing=True):
+        process = BinningProcess().set_fit_request(sample_weight=True)
+        estimator = LogisticRegression().set_fit_request(sample_weight=True)
+        pipeline = Pipeline([("binning", process), ("model", estimator)])
+        pipeline.fit(X, y, sample_weight=weights)
+
+This example requires a binary target because weighted fitting in
+``BinningProcess`` is currently supported only for binary targets. Each step
+receives the original sample weights. Requesting them at the estimator alone
+does not make the binning step weighted.
+
+Use ``set_fit_request(sample_weight=False)`` on the binning process to fit
+unweighted bins while routing weights to the estimator. The default request
+is unset, so scikit-learn raises an error if weights are supplied without an
+explicit routing choice, rather than silently discarding them. Requests also
+support aliases, for example ``set_fit_request(sample_weight="weights")``.
+Cloning and ``ColumnTransformer`` preserve these inherited routing rules.
+
+Without metadata routing, the existing step-prefixed arguments still work::
+
+    pipeline = Pipeline([("binning", BinningProcess()),
+                         ("model", LogisticRegression())])
+    pipeline.fit(X, y, binning__sample_weight=weights,
+                 model__sample_weight=weights)
+
+The second example assumes scikit-learn's default configuration with metadata
+routing disabled. For per-call transformation options in a routing-enabled
+pipeline, use ``set_transform_request(metric=True)`` before passing
+``metric="event_rate"`` to ``pipeline.fit_transform``. The compatibility
+wrapper forwards these options to transformation; ordinary calls continue
+to use the inherited ``TransformerMixin.fit_transform`` implementation.
