@@ -6,6 +6,8 @@ problem. Constraint programming implementation.
 # Guillermo Navas-Palencia <g.navas.palencia@gmail.com>
 # Copyright (C) 2019
 
+import math
+
 import numpy as np
 
 from ortools.sat.python import cp_model
@@ -49,24 +51,18 @@ class ContinuousBinningCP(BinningCP):
 
         n = len(n_records)
 
-        # CP-SAT requires integer coefficients for bin-size constraints.
-        # Keep moments in original weight units; only quantize constraint mass.
-        scale = (1 if np.all(n_records == np.floor(n_records))
-                 else 1e6 / n_records.sum())
-        n_records = np.rint(n_records * scale).astype(np.int64)
-        if self.min_bin_size is not None:
-            self.min_bin_size = int(np.ceil(self.min_bin_size * scale))
-        if self.max_bin_size is not None:
-            self.max_bin_size = int(np.floor(self.max_bin_size * scale))
-
         # Initialize model
         model = cp_model.CpModel()
 
         # Decision variables
-        x, y, t, d, u, bin_size_diff = self.decision_variables(model, n)
+        x, y, t, d = self.decision_variables_scenarios(model, n)
 
         if self.gamma:
-            total_records = int(n_records.sum())
+            # Regularization keeps its integer objective scaling. Bin-size
+            # feasibility below is evaluated using original weight masses.
+            scale = (1 if np.all(n_records == np.floor(n_records))
+                     else 1e6 / n_records.sum())
+            total_records = int(np.rint(n_records * scale).sum())
             regularization = int(np.ceil(M * self.gamma / total_records))
             pmax = model.NewIntVar(0, total_records, "pmax")
             pmin = model.NewIntVar(0, total_records, "pmin")
@@ -90,8 +86,7 @@ class ContinuousBinningCP(BinningCP):
         self.add_constraint_min_max_bins(model, n, x, d)
 
         # Constraint: min / max bin size
-        self.add_constraint_min_max_bin_size(model, n, x, u, n_records,
-                                             bin_size_diff)
+        self._add_weighted_size_constraints(model, x, n_records)
 
         # Constraints: monotonicity
         if self.monotonic_trend == "ascending":
@@ -136,6 +131,31 @@ class ContinuousBinningCP(BinningCP):
         self._model = model
         self._x = x
         self._n = n
+
+    def _add_weighted_size_constraints(self, model, x, n_records):
+        """Forbid contiguous bins outside the original weighted size limits."""
+        if self.min_bin_size is None and self.max_bin_size is None:
+            return
+        for i in range(len(n_records)):
+            for j in range(i + 1):
+                mass = math.fsum(n_records[j:i + 1])
+                invalid = False
+                for bound, lower in ((self.min_bin_size, True),
+                                     (self.max_bin_size, False)):
+                    if bound is None:
+                        continue
+                    # Only tolerate floating-point arithmetic at the boundary,
+                    # not quantization of prebin masses to integer units.
+                    tolerance = (8 * np.finfo(float).eps *
+                                 max(abs(mass), abs(bound)))
+                    invalid |= (mass < bound - tolerance if lower
+                                else mass > bound + tolerance)
+                if invalid:
+                    # A bin [j, i] is selected when x[i,j] rises from 0 to 1.
+                    if j == 0:
+                        model.Add(x[i, j] == 0)
+                    else:
+                        model.Add(x[i, j] == x[i, j - 1])
 
     def add_constraint_monotonic_ascending(self, model, n, U, x, M):
         for i in range(1, n):

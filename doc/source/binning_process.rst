@@ -146,7 +146,8 @@ Integer weights represent repeated observations.
 
 CART prebinning uses weights; the other prebinning methods retain their own
 unweighted split-generation rules. Bin-size fractions refer to weight mass.
-CP-SAT bin-size constraints quantize fractional prebin masses to one million
-units of the total clean mass; reported statistics retain the original weights.
+Bin-size constraints evaluate each candidate bin using its original weight
+mass, with only floating-point roundoff tolerance at the boundary. No integer
+quantization of weights is used for these constraints.
 Multiclass targets still do not accept sample weights. Data-driven outlier
 filters remain unweighted, so they need not match filtering repeated rows.
