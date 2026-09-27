@@ -21,6 +21,7 @@ import pandas as pd
 from joblib import Parallel, delayed, effective_n_jobs
 from sklearn.base import BaseEstimator
 from sklearn.base import TransformerMixin
+from scipy.sparse import issparse
 from sklearn.exceptions import NotFittedError
 from sklearn.utils import check_array
 from sklearn.utils import check_consistent_length
@@ -68,6 +69,32 @@ _OPTB_TYPES = (OptimalBinning, ContinuousOptimalBinning,
 
 
 _OPTBPW_TYPES = (OptimalPWBinning, ContinuousOptimalPWBinning)
+
+
+def _check_feature_schema(X, fitting=False):
+    if issparse(X):
+        raise TypeError("Sparse input is not supported; use a dense array "
+                        "or DataFrame.")
+    if not isinstance(X, (pd.DataFrame, np.ndarray)):
+        raise TypeError("X must be a pandas.DataFrame or numpy.ndarray.")
+    if X.ndim != 2:
+        raise ValueError("X must be two-dimensional. Reshape your data.")
+    if X.shape[0] == 0:
+        raise ValueError("Found array with 0 sample(s); at least 1 is required.")
+    if fitting and X.shape[1] == 0:
+        raise ValueError("Found array with 0 feature(s) (shape={}) while a "
+                         "minimum of 1 is required.".format(X.shape))
+    if np.iscomplexobj(X):
+        raise ValueError("Complex data not supported.")
+    if isinstance(X, pd.DataFrame):
+        _check_feature_names(list(X.columns))
+
+
+def _check_feature_names(names):
+    if any(not isinstance(name, str) for name in names):
+        raise TypeError("Feature names must be strings; rename DataFrame columns.")
+    if len(set(names)) != len(names):
+        raise ValueError("Feature names must be unique; duplicate names found.")
 
 
 def _read_column(input_path, extension, column, **kwargs):
@@ -1142,9 +1169,10 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         """
         check_is_fitted(self)
         names = np.asarray(self._variable_names, dtype=object)
+        expected = getattr(self, "feature_names_in_", names)
         if input_features is not None:
             supplied = np.asarray(input_features, dtype=object)
-            if supplied.ndim != 1 or not np.array_equal(supplied, names):
+            if supplied.ndim != 1 or not np.array_equal(supplied, expected):
                 raise ValueError("input_features must match fitted variable names.")
         return names[self.get_support()].copy()
 
@@ -1190,6 +1218,17 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         else:
             return mask
 
+    def _reset_fit_state(self):
+        self._is_fitted = False
+        self._is_updated = False
+        self._binned_variables = {}
+        self._variable_dtypes = {}
+        self._variable_stats = {}
+        self._support = None
+        for attr in ("classes_", "n_features_in_", "feature_names_in_"):
+            if hasattr(self, attr):
+                delattr(self, attr)
+
     def _target_fit_params(self):
         params = self.binning_fit_params
         if self._target_dtype != "binary" or params is None:
@@ -1206,6 +1245,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         return result
 
     def _fit(self, X, y, sample_weight, check_input):
+        self._reset_fit_state()
         time_init = time.perf_counter()
 
         if self.verbose:
@@ -1215,8 +1255,8 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         _check_parameters(**self.get_params())
 
         # check X dtype
-        if not isinstance(X, (pd.DataFrame, np.ndarray)):
-            raise TypeError("X must be a pandas.DataFrame or numpy.ndarray.")
+        _check_feature_schema(X, fitting=True)
+        check_consistent_length(X, y)
 
         # check target dtype
         self._target_dtype = resolve_target_dtype(y, self.target_dtype)
@@ -1274,8 +1314,12 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                 self._variable_names = ["x{}".format(i)
                                         for i in range(self._n_variables)]
         else:
-            self._variable_names = self.variable_names
+            self._variable_names = list(self.variable_names)
 
+        _check_feature_names(self._variable_names)
+        if (input_names is not None and
+                set(input_names) != set(self._variable_names)):
+            raise ValueError("variable_names must match the DataFrame columns.")
         if self._n_variables != len(self._variable_names):
             raise ValueError("The number of columns must be equal to the"
                              "length of variable_names.")
@@ -1371,6 +1415,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         return self
 
     def _fit_disk(self, input_path, target, **kwargs):
+        self._reset_fit_state()
         time_init = time.perf_counter()
 
         if self.verbose:
@@ -1384,7 +1429,8 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         if self.variable_names is None:
             raise ValueError("variable_names cannot be None when using "
                              "fit_disk.")
-        self._variable_names = self.variable_names
+        self._variable_names = list(self.variable_names)
+        _check_feature_names(self._variable_names)
         self.n_features_in_ = len(self._variable_names)
         self.feature_names_in_ = np.asarray(self._variable_names, dtype=object)
 
@@ -1476,6 +1522,7 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         return self
 
     def _fit_from_dict(self, dict_optb):
+        self._reset_fit_state()
         time_init = time.perf_counter()
 
         if self.verbose:
@@ -1492,7 +1539,8 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
         if self.variable_names is None:
             raise ValueError("variable_names cannot be None when using "
                              "_fit_from_dict.")
-        self._variable_names = self.variable_names
+        self._variable_names = list(self.variable_names)
+        _check_feature_names(self._variable_names)
         self.n_features_in_ = len(self._variable_names)
         self.feature_names_in_ = np.asarray(self._variable_names, dtype=object)
 
@@ -1567,10 +1615,12 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                    show_digits, check_input):
 
         # Check X dtype
-        if not isinstance(X, (pd.DataFrame, np.ndarray)):
-            raise TypeError("X must be a pandas.DataFrame or numpy.ndarray.")
+        _check_feature_schema(X)
 
         n_samples, n_variables = X.shape
+
+        if isinstance(X, np.ndarray):
+            validate_data(self, X, reset=False, skip_check_array=True)
 
         mask = self.get_support()
         if not mask.any():
@@ -1578,9 +1628,6 @@ class BinningProcess(Base, TransformerMixin, BaseEstimator,
                  " too noisy or the selection_criteria too strict.",
                  UserWarning)
             return np.empty(0).reshape((n_samples, 0))
-
-        if isinstance(X, np.ndarray):
-            validate_data(self, X, reset=False, skip_check_array=True)
 
         if isinstance(X, pd.DataFrame):
             selected_variables = self.get_support(names=True)

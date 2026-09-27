@@ -104,3 +104,29 @@ pipeline, use ``set_transform_request(metric=True)`` before passing
 ``metric="event_rate"`` to ``pipeline.fit_transform``. The compatibility
 wrapper forwards these options to transformation; ordinary calls continue
 to use the inherited ``TransformerMixin.fit_transform`` implementation.
+
+
+Feature schema and refitting
+----------------------------
+
+Inputs must be a two-dimensional NumPy array or pandas DataFrame. Sparse
+inputs and complex-valued arrays are unsupported. Fitting requires at least
+one sample and one feature. DataFrame column names and explicit
+``variable_names`` must be unique strings; explicit names must match the
+DataFrame columns, although their order may differ.
+
+DataFrame transformation matches selected features by name, so columns may
+be reordered and unselected columns may be omitted. NumPy transformation
+requires the original number of features in their original order, even if
+selection leaves no output features. ``get_feature_names_out`` reports
+selected features in output order; its optional ``input_features`` argument
+must match the original input names and order.
+
+Refitting replaces the previous fitted state, including feature metadata and
+selected variables. A failed refit leaves the process unfitted rather than
+exposing bins from an earlier fit.
+
+The transformer supports sklearn cloning, pipelines, output containers and
+metadata routing, but does not yet satisfy every generic estimator check.
+General array-like inputs (such as lists), non-string DataFrame column names,
+and sample weights for continuous targets remain unsupported.

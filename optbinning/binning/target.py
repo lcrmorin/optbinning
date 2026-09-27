@@ -17,6 +17,9 @@ def resolve_target_dtype(
     """
     if target_dtype not in (None, "binary", "continuous", "multiclass"):
         raise ValueError("Invalid target_dtype.")
+    if y is None:
+        raise ValueError("This estimator requires y to be passed, "
+                         "but the target y is None.")
     values = np.asarray(y, dtype=object)
     if values.ndim != 1 or not values.size:
         raise ValueError("y must be a non-empty one-dimensional target.")
@@ -39,7 +42,9 @@ def resolve_target_dtype(
     if target_dtype == "continuous" and not numeric:
         raise TypeError("A continuous target must contain real numbers.")
     if target_dtype == "binary" and len(unique) != 2:
-        raise ValueError("A binary target must contain exactly two classes.")
+        raise ValueError("A binary target must contain exactly two classes; "
+                         "got {}.".format("one class" if len(unique) == 1
+                                          else len(unique)))
     if target_dtype == "multiclass" and len(unique) < 2:
         raise ValueError("A multiclass target must contain at least two classes.")
     return target_dtype
