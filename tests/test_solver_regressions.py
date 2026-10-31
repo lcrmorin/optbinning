@@ -2,6 +2,7 @@
 import numpy as np
 import pytest
 
+from optbinning.binning.continuous_cp import ContinuousBinningCP
 from optbinning.binning.cp import BinningCP
 from optbinning.binning.mip import BinningMIP
 
@@ -39,3 +40,19 @@ def test_monotonic_pruning_preserves_valid_partition(solver, trend, turn):
         assert differences[0] <= 0 <= differences[1]
     else:
         assert (differences <= 0).all()
+
+
+@pytest.mark.parametrize('trend,means', [
+    ('peak', [-3, 2, 1]), ('valley', [3, -2, -1])])
+@pytest.mark.parametrize('shift', [0, -10, 10])
+def test_continuous_turning_shape_signed_means(trend, means, shift):
+    n = np.array([10, 10, 10])
+    means = np.array(means) + shift
+    cp = ContinuousBinningCP(trend, 3, 3, None, None, 0, None,
+                             'consecutive', 0, None, 5)
+    cp.build_model(n, n * means, n * (means ** 2 + 1), None)
+    status, cuts = cp.solve()
+    # With exactly three bins there is only one possible partition; its
+    # means have the requested shape, including across zero.
+    assert status == 'OPTIMAL'
+    assert cuts.all()
