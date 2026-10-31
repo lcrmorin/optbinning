@@ -45,7 +45,8 @@ class MulticlassBinningMIP(BinningMIP):
             self.min_event_rate_diff)
 
         n = len(n_nonevent)
-        n_records = n_nonevent + n_event
+        # One-vs-rest columns share the same total support per prebin.
+        n_records = (n_nonevent + n_event)[:, 0]
         n_classes = len(self.monotonic_trend)
 
         # Initialize solver

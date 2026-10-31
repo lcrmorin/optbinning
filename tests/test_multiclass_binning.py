@@ -11,11 +11,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from pytest import approx, raises
+from pytest import approx, raises, mark
 
 from optbinning import MulticlassOptimalBinning
 from optbinning.binning.binning_statistics import MulticlassBinningTable
-from sklearn.datasets import load_wine
+from sklearn.datasets import load_iris, load_wine
 from sklearn.exceptions import NotFittedError
 
 
@@ -335,3 +335,18 @@ def test_df_tests():
     # returned frame is a defensive copy
     df_tests["p-value"] = -1
     assert (table.df_tests["p-value"] != -1).all()
+
+
+@mark.parametrize("solver", ["cp", "mip"])
+@mark.parametrize("bounds", [
+    dict(min_bin_size=0.1), dict(max_bin_size=0.8),
+    dict(min_bin_size=0.1, max_bin_size=0.8)])
+def test_multiclass_bin_support_limits(solver, bounds):
+    features, target = load_iris(return_X_y=True)
+    feature = features[:, 0]
+    model = MulticlassOptimalBinning(solver=solver, **bounds)
+    model.fit(feature, target)
+    assert model.status == "OPTIMAL"
+    counts = np.bincount(np.digitize(feature, model.splits))
+    assert counts.min() >= np.ceil(bounds.get("min_bin_size", 0) * len(target))
+    assert counts.max() <= np.ceil(bounds.get("max_bin_size", 1) * len(target))
