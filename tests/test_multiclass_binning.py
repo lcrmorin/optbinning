@@ -350,3 +350,53 @@ def test_multiclass_bin_support_limits(solver, bounds):
     counts = np.bincount(np.digitize(feature, model.splits))
     assert counts.min() >= np.ceil(bounds.get("min_bin_size", 0) * len(target))
     assert counts.max() <= np.ceil(bounds.get("max_bin_size", 1) * len(target))
+
+
+@mark.parametrize("solver", ["cp", "mip"])
+@mark.parametrize("trend,valid", [
+    ("convex", [16, 8, 4, 2]), ("concave", [2, 10, 14, 16]),
+    ("peak_heuristic", [2, 16, 12, 4]),
+    ("valley_heuristic", [16, 2, 4, 14])])
+@mark.parametrize("feasible", [False, True])
+def test_multiclass_requested_shape(solver, trend, valid, feasible):
+    first = np.array(valid if feasible else [2, 16, 4, 14])
+    second = (20 - first) // 2
+    counts = np.column_stack([first, second, 20 - first - second])
+    feature = np.repeat(np.arange(4), 20)
+    target = np.concatenate([np.repeat(np.arange(3), row) for row in counts])
+    model = MulticlassOptimalBinning(
+        solver=solver, monotonic_trend=[trend, None, None],
+        user_splits=[0.5, 1.5, 2.5], min_n_bins=4, max_n_bins=4)
+    model.fit(feature, target)
+    assert model.status == ("OPTIMAL" if feasible else "INFEASIBLE")
+
+
+@mark.parametrize("solver", ["cp", "mip"])
+@mark.parametrize("trend", ["peak", "valley"])
+@mark.parametrize("per_class", [False, True])
+def test_multiclass_auto_heuristic_turning_points(
+        monkeypatch, solver, trend, per_class):
+    from optbinning.binning import multiclass_binning as module
+
+    # Exercise dispatch independently of the statistical trend predictor.
+    monkeypatch.setattr(module, "auto_monotonic", lambda *args: trend)
+    cls = (module.MulticlassBinningCP if solver == "cp" else
+           module.MulticlassBinningMIP)
+    original = cls.build_model
+    observed = []
+
+    def checked_build(self, nonevents, events, turns):
+        assert self.monotonic_trend == [trend + "_heuristic"] * 3
+        rates = events / (nonevents + events)
+        argextreme = np.argmax if trend == "peak" else np.argmin
+        assert turns == argextreme(rates, axis=0).tolist()
+        observed.append(True)
+        return original(self, nonevents, events, turns)
+
+    monkeypatch.setattr(cls, "build_model", checked_build)
+    features, target = load_iris(return_X_y=True)
+    mode = ["auto_heuristic"] * 3 if per_class else "auto_heuristic"
+    model = MulticlassOptimalBinning(solver=solver, monotonic_trend=mode)
+    model.fit(features[:, 0], target)
+    assert observed == [True]
+    assert model.status == "OPTIMAL"
