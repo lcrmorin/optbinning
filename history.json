@@ -1,0 +1,508 @@
+{
+  "records": [
+    {
+      "revision": "d31da39481a6bc7fd187ec1d864948fbed3632e1",
+      "label": "Develop before CP changes",
+      "protocol": "0dd83a46837cab61a193912ca1023f36c70834677d51e24c67cb7968dd73d9c2",
+      "code_tree": "f11a9d365ad8569051f2dbd7d6654d6d735acf90",
+      "comparisons": [
+        {
+          "label": "OptBinning 1.0.0",
+          "reference": "271c906d5250f17633396f88d246d64b4c449380",
+          "panels": [
+            {
+              "panel": "construction / binary",
+              "cases": 28,
+              "eligible": 28,
+              "changed": 0,
+              "reference_ms": 7.218627499995023,
+              "candidate_ms": 7.123648000003868,
+              "speedup": 0.9996491238199887,
+              "p5": 0.9923656324218445,
+              "p95": 1.0121970113905414
+            },
+            {
+              "panel": "construction / continuous",
+              "cases": 28,
+              "eligible": 28,
+              "changed": 0,
+              "reference_ms": 6.4752159999983405,
+              "candidate_ms": 6.401549500004933,
+              "speedup": 1.0018867841786776,
+              "p5": 0.9925706219077525,
+              "p95": 1.0147627216065154
+            },
+            {
+              "panel": "construction / multiclass",
+              "cases": 20,
+              "eligible": 20,
+              "changed": 0,
+              "reference_ms": 3.9059545000128537,
+              "candidate_ms": 3.9193694999966056,
+              "speedup": 0.9983069055338787,
+              "p5": 0.988599698940095,
+              "p95": 1.0078885320581317
+            },
+            {
+              "panel": "construction / 2d",
+              "cases": 36,
+              "eligible": 36,
+              "changed": 0,
+              "reference_ms": 0.49143249999872296,
+              "candidate_ms": 0.49647550000031515,
+              "speedup": 0.9948562817817401,
+              "p5": 0.9400511266844682,
+              "p95": 1.023961853645626
+            },
+            {
+              "panel": "fit / binary / numerical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 6.044414499989159,
+              "candidate_ms": 6.151750500002606,
+              "speedup": 0.9889578482315771,
+              "p5": 0.981657682863151,
+              "p95": 0.996258013600003
+            },
+            {
+              "panel": "fit / binary / categorical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 8.305611999986695,
+              "candidate_ms": 8.322810499997502,
+              "speedup": 0.9958535336499774,
+              "p5": 0.9901332315199849,
+              "p95": 1.00157383577997
+            },
+            {
+              "panel": "fit / continuous / numerical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 15.079444999997804,
+              "candidate_ms": 15.087919000002614,
+              "speedup": 0.9969604463459448,
+              "p5": 0.9936751867669019,
+              "p95": 1.0002457059249876
+            },
+            {
+              "panel": "fit / continuous / categorical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 12.4729950000102,
+              "candidate_ms": 12.466354000011393,
+              "speedup": 1.001464984187926,
+              "p5": 0.9980554341879553,
+              "p95": 1.0048745341878964
+            }
+          ]
+        }
+      ],
+      "measured_at": "2026-11-11T05:37:19+00:00",
+      "runner": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+      "run_url": ""
+    },
+    {
+      "revision": "2999797f9e0535beea14da3d3d4f1e70af91536a",
+      "label": "CP/MIP formulation corrections",
+      "protocol": "0dd83a46837cab61a193912ca1023f36c70834677d51e24c67cb7968dd73d9c2",
+      "code_tree": "d63bd7851d63c3585d076b61747f47a4c57bffc1",
+      "comparisons": [
+        {
+          "label": "OptBinning 1.0.0",
+          "reference": "271c906d5250f17633396f88d246d64b4c449380",
+          "panels": [
+            {
+              "panel": "construction / binary",
+              "cases": 28,
+              "eligible": 20,
+              "changed": 8,
+              "reference_ms": 7.19914999999105,
+              "candidate_ms": 7.1595105000028525,
+              "speedup": 1.0033363065404395,
+              "p5": 0.9972057074575087,
+              "p95": 1.0153337439270107
+            },
+            {
+              "panel": "construction / continuous",
+              "cases": 28,
+              "eligible": 20,
+              "changed": 8,
+              "reference_ms": 6.419076500009169,
+              "candidate_ms": 6.3820270000007895,
+              "speedup": 1.004706707217972,
+              "p5": 0.9970832549029528,
+              "p95": 1.0132074270145885
+            },
+            {
+              "panel": "construction / multiclass",
+              "cases": 20,
+              "eligible": 16,
+              "changed": 4,
+              "reference_ms": 3.9151689999812334,
+              "candidate_ms": 3.887297000005674,
+              "speedup": 1.0060875373943108,
+              "p5": 0.9960544168589013,
+              "p95": 1.014042566303108
+            },
+            {
+              "panel": "construction / 2d",
+              "cases": 36,
+              "eligible": 36,
+              "changed": 0,
+              "reference_ms": 0.4939315000171973,
+              "candidate_ms": 0.49580949999494806,
+              "speedup": 1.0009352013890682,
+              "p5": 0.9813769042814543,
+              "p95": 1.0238325219300763
+            },
+            {
+              "panel": "fit / binary / numerical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 6.04800450000198,
+              "candidate_ms": 7.201250499974776,
+              "speedup": 0.8798257540447703,
+              "p5": 0.7667483444240931,
+              "p95": 0.9929031636654474
+            },
+            {
+              "panel": "fit / binary / categorical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 8.293738500015024,
+              "candidate_ms": 8.342812999984517,
+              "speedup": 0.9871392816729991,
+              "p5": 0.9784467701452989,
+              "p95": 0.9958317932006995
+            },
+            {
+              "panel": "fit / continuous / numerical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 15.050540000004275,
+              "candidate_ms": 15.056038500006252,
+              "speedup": 0.9997957967884359,
+              "p5": 0.9976081717658397,
+              "p95": 1.001983421811032
+            },
+            {
+              "panel": "fit / continuous / categorical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 12.474090999972987,
+              "candidate_ms": 12.396810500007405,
+              "speedup": 1.004328020551171,
+              "p5": 1.0023980872901332,
+              "p95": 1.006257953812209
+            }
+          ]
+        },
+        {
+          "label": "preceding update",
+          "reference": "d31da39481a6bc7fd187ec1d864948fbed3632e1",
+          "panels": [
+            {
+              "panel": "construction / binary",
+              "cases": 28,
+              "eligible": 20,
+              "changed": 8,
+              "reference_ms": 7.152178999945136,
+              "candidate_ms": 7.176592999940112,
+              "speedup": 0.9991202581583146,
+              "p5": 0.9888491605553915,
+              "p95": 1.0088470791709845
+            },
+            {
+              "panel": "construction / continuous",
+              "cases": 28,
+              "eligible": 20,
+              "changed": 8,
+              "reference_ms": 6.3996650000035515,
+              "candidate_ms": 6.420156500041685,
+              "speedup": 0.9956690125687337,
+              "p5": 0.9757340110211579,
+              "p95": 1.0023009560718235
+            },
+            {
+              "panel": "construction / multiclass",
+              "cases": 20,
+              "eligible": 16,
+              "changed": 4,
+              "reference_ms": 3.9183685000239166,
+              "candidate_ms": 3.917315000023791,
+              "speedup": 0.9965796806854925,
+              "p5": 0.9875418960154895,
+              "p95": 1.0034304793867124
+            },
+            {
+              "panel": "construction / 2d",
+              "cases": 36,
+              "eligible": 36,
+              "changed": 0,
+              "reference_ms": 0.4968149999626803,
+              "candidate_ms": 0.4990285000303629,
+              "speedup": 0.9962103660580354,
+              "p5": 0.9699545746604057,
+              "p95": 1.0127344363615074
+            },
+            {
+              "panel": "fit / binary / numerical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 6.060866499979056,
+              "candidate_ms": 7.253264999974363,
+              "speedup": 0.8644835606303191,
+              "p5": 0.7646374382150107,
+              "p95": 0.9643296830456274
+            },
+            {
+              "panel": "fit / binary / categorical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 8.29271799997855,
+              "candidate_ms": 8.364664499936225,
+              "speedup": 0.9898494406664973,
+              "p5": 0.9872903656832015,
+              "p95": 0.9924085156497932
+            },
+            {
+              "panel": "fit / continuous / numerical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 15.0916444999325,
+              "candidate_ms": 15.090580999981285,
+              "speedup": 0.9960159033393707,
+              "p5": 0.9925123557200313,
+              "p95": 0.9995194509587103
+            },
+            {
+              "panel": "fit / continuous / categorical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 12.423917500029802,
+              "candidate_ms": 12.446067999974275,
+              "speedup": 0.9936563037793175,
+              "p5": 0.992139861993738,
+              "p95": 0.9951727455648969
+            }
+          ]
+        }
+      ],
+      "measured_at": "2026-11-11T05:43:15+00:00",
+      "runner": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+      "run_url": ""
+    },
+    {
+      "revision": "cebfbcce3a5390c827155c4d0c6c8861fe275e9e",
+      "label": "Native CP expression construction",
+      "protocol": "0dd83a46837cab61a193912ca1023f36c70834677d51e24c67cb7968dd73d9c2",
+      "code_tree": "9e64cd4a5a3af7f82643d4c461b6e512936be02c",
+      "comparisons": [
+        {
+          "label": "OptBinning 1.0.0",
+          "reference": "271c906d5250f17633396f88d246d64b4c449380",
+          "panels": [
+            {
+              "panel": "construction / binary",
+              "cases": 28,
+              "eligible": 20,
+              "changed": 8,
+              "reference_ms": 7.193777499992393,
+              "candidate_ms": 4.014046500003587,
+              "speedup": 1.843924346272333,
+              "p5": 1.2082685241366993,
+              "p95": 3.3596548556901813
+            },
+            {
+              "panel": "construction / continuous",
+              "cases": 28,
+              "eligible": 20,
+              "changed": 8,
+              "reference_ms": 6.422041000064382,
+              "candidate_ms": 3.220680000026732,
+              "speedup": 1.9904213102271975,
+              "p5": 1.1487872840407143,
+              "p95": 3.4246713188429188
+            },
+            {
+              "panel": "construction / multiclass",
+              "cases": 20,
+              "eligible": 16,
+              "changed": 4,
+              "reference_ms": 3.959395499975926,
+              "candidate_ms": 3.121313999940867,
+              "speedup": 1.244094942587231,
+              "p5": 1.086157247242583,
+              "p95": 2.0171241257315917
+            },
+            {
+              "panel": "construction / 2d",
+              "cases": 36,
+              "eligible": 36,
+              "changed": 0,
+              "reference_ms": 0.5019579999725465,
+              "candidate_ms": 0.46155849997830956,
+              "speedup": 1.1214720047323241,
+              "p5": 1.0464389216992849,
+              "p95": 1.2003137025096953
+            },
+            {
+              "panel": "fit / binary / numerical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 6.146478999994542,
+              "candidate_ms": 6.3658210000312465,
+              "speedup": 0.9738048950707013,
+              "p5": 0.9183019663738283,
+              "p95": 1.0293078237675743
+            },
+            {
+              "panel": "fit / binary / categorical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 8.432325000001129,
+              "candidate_ms": 7.365686499952062,
+              "speedup": 1.1245336459462938,
+              "p5": 1.0519287977450054,
+              "p95": 1.197138494147582
+            },
+            {
+              "panel": "fit / continuous / numerical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 15.126816999952553,
+              "candidate_ms": 12.127620999933697,
+              "speedup": 1.19820536427613,
+              "p5": 1.0766528739323633,
+              "p95": 1.3197578546198967
+            },
+            {
+              "panel": "fit / continuous / categorical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 12.501926499965066,
+              "candidate_ms": 10.111728999959269,
+              "speedup": 1.205663134313976,
+              "p5": 1.0708408000502334,
+              "p95": 1.3404854685777188
+            }
+          ]
+        },
+        {
+          "label": "preceding update",
+          "reference": "2999797f9e0535beea14da3d3d4f1e70af91536a",
+          "panels": [
+            {
+              "panel": "construction / binary",
+              "cases": 28,
+              "eligible": 28,
+              "changed": 0,
+              "reference_ms": 7.371401000000333,
+              "candidate_ms": 4.242475000069135,
+              "speedup": 1.7865099734216103,
+              "p5": 1.2344924323337298,
+              "p95": 3.316559858122183
+            },
+            {
+              "panel": "construction / continuous",
+              "cases": 28,
+              "eligible": 28,
+              "changed": 0,
+              "reference_ms": 6.564015999970252,
+              "candidate_ms": 3.4354660000417425,
+              "speedup": 1.939201779516038,
+              "p5": 1.2314529009578792,
+              "p95": 3.4063318289838556
+            },
+            {
+              "panel": "construction / multiclass",
+              "cases": 20,
+              "eligible": 20,
+              "changed": 0,
+              "reference_ms": 4.083444500054156,
+              "candidate_ms": 3.226618999974562,
+              "speedup": 1.2796124466040848,
+              "p5": 1.1066070860403894,
+              "p95": 1.9807230691255149
+            },
+            {
+              "panel": "construction / 2d",
+              "cases": 36,
+              "eligible": 36,
+              "changed": 0,
+              "reference_ms": 0.518708000015522,
+              "candidate_ms": 0.4744025000036345,
+              "speedup": 1.1381045470587685,
+              "p5": 1.0816579914397992,
+              "p95": 1.2179100587500074
+            },
+            {
+              "panel": "fit / binary / numerical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 7.77278949999527,
+              "candidate_ms": 6.619706000037695,
+              "speedup": 1.1498263880803847,
+              "p5": 1.0592472761314307,
+              "p95": 1.2404055000293386
+            },
+            {
+              "panel": "fit / binary / categorical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 9.446001000014803,
+              "candidate_ms": 7.902303499975005,
+              "speedup": 1.196121068482886,
+              "p5": 1.1579349766301907,
+              "p95": 1.2343071603355813
+            },
+            {
+              "panel": "fit / continuous / numerical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 16.245095500039497,
+              "candidate_ms": 12.733639500083882,
+              "speedup": 1.2255588762488916,
+              "p5": 1.1159222212106235,
+              "p95": 1.3351955312871595
+            },
+            {
+              "panel": "fit / continuous / categorical",
+              "cases": 2,
+              "eligible": 2,
+              "changed": 0,
+              "reference_ms": 13.604571499968188,
+              "candidate_ms": 10.883073000002241,
+              "speedup": 1.228907597590044,
+              "p5": 1.1321355841624938,
+              "p95": 1.3256796110175946
+            }
+          ]
+        }
+      ],
+      "measured_at": "2026-11-11T05:48:48+00:00",
+      "runner": "Linux-7.0.0-1017-azure-x86_64-with-glibc2.39",
+      "run_url": ""
+    }
+  ],
+  "baseline": "271c906d5250f17633396f88d246d64b4c449380"
+}
